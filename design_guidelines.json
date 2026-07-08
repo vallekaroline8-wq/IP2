@@ -1,0 +1,119 @@
+{
+  "project_name": "SIGIP - Sistema de Gestión de Direcciones IP",
+  "theme": "Enterprise Admin ERP (Light and Dark Mode)",
+  "design_archetype": "The Swiss Brutalist meets Performance Pro",
+  "typography": {
+    "headings": {
+      "font_family": "Manrope, sans-serif",
+      "weight": "font-bold to font-extrabold",
+      "tracking": "tracking-tight",
+      "usage": "Dashboard metrics, page titles, modal headers. Avoid generic sans-serifs."
+    },
+    "body": {
+      "font_family": "IBM Plex Sans, sans-serif",
+      "weight": "font-normal to font-medium",
+      "tracking": "tracking-normal",
+      "usage": "General UI text, table content, forms, descriptions."
+    },
+    "monospace": {
+      "font_family": "IBM Plex Mono, monospace",
+      "weight": "font-medium",
+      "usage": "IP Addresses, MAC Addresses, Subnets, CIDR blocks, Logs."
+    }
+  },
+  "colors": {
+    "light_mode": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "primary": "#0A4B8F",
+      "primary_hover": "#083D75",
+      "text_main": "#0F172A",
+      "text_muted": "#64748B",
+      "border": "#E2E8F0"
+    },
+    "dark_mode": {
+      "background": "#020817",
+      "surface": "#0F172A",
+      "primary": "#3B82F6",
+      "primary_hover": "#60A5FA",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8",
+      "border": "#1E293B"
+    },
+    "status": {
+      "available": "#10B981",
+      "occupied": "#EF4444",
+      "reserved": "#F59E0B"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "Minimalist approach. Use subtle, layered drop-shadows only on hover states or floating elements like modals/dropdowns. Avoid muddy shadows.",
+    "borders": "Crisp 1px borders (border-border/50) to delineate table rows, cards, and sections. High-tech/enterprise feel.",
+    "radii": "Subtle roundness. Max 8px (rounded-md to rounded-lg). Nested elements must have concentric radii.",
+    "glassmorphism": "Use ONLY for sticky headers or dropdowns. Requires backdrop-blur-xl and a subtle 1px border for definition."
+  },
+  "components": {
+    "sidebar": "Collapsible sidebar with smooth width transition. Uses Lucide or Phosphor icons. Active state highlighted with primary color left-border (2px) and light background tint.",
+    "navbar": "Top navbar containing Breadcrumbs on the left, and Global Search, Theme Toggle, User Profile on the right.",
+    "tables": "High-density enterprise tables. Sticky headers, alternating row colors or 1px bottom borders. IP addresses MUST use monospace font. Include a top action bar (Search, Filter, Export PDF/Excel, Add New).",
+    "cards": "Metric cards (Total IPs, Segments, etc.) should use 'Grid Borders' style or flat solid surfaces with sharp 1px borders. No heavy shadows.",
+    "buttons": "Rectangular with subtle 4px-8px radius. Clear active/hover states.",
+    "modals": "Used for CRUD operations. Backdrop must be black/50 with backdrop-blur-sm. Solid surfaces inside.",
+    "charts": "Recharts. Pie charts for IP availability (Available vs Occupied vs Reserved). Bar charts for Segment usage. Ensure charts are responsive and use the status color palette."
+  },
+  "layouts": {
+    "dashboard_grid": "Mode B: High Density Grid. grid-cols-1 md:grid-cols-2 lg:grid-cols-4. Gap-4 or Gap-6. Metric cards take col-span-1. Charts take col-span-2.",
+    "page_structure": "h-screen flex layout. Sidebar on left (fixed or flex). Main content area on right with flex-col (Navbar top, scrollable content area below, padding p-6 or p-8)."
+  },
+  "motion": {
+    "micro_interactions": "Hover states on all buttons and table rows (e.g., hover:bg-slate-50/10).",
+    "page_transitions": "Subtle fade-in for page loads. 0.2s ease.",
+    "sidebar_toggle": "Smooth width transition using standard CSS transition (transition-width duration-300).",
+    "charts": "Animate charts on mount using Recharts default animations."
+  },
+  "accessibility": {
+    "contrast": "Ensure all text meets minimum 4.5:1 ratio. Especially status badges (use light backgrounds with dark text in light mode, e.g., bg-green-100 text-green-800).",
+    "focus": "All interactive elements must have focus:ring-2 focus:ring-primary focus:ring-offset-2.",
+    "testing": "All interactive elements (buttons, inputs, filters, table rows) MUST include 'data-testid' (e.g., data-testid='login-submit', data-testid='segment-row-1')."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1709497197725-2e97c76b31d0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3NwaXRhbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3IlMjBibHVlJTIwc2t5fGVufDB8fHx8MTc4MzUyMzI0M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Modern hospital building exterior",
+        "category": "login_background",
+        "instructions": "Use as a full-cover background image on the login screen with a heavy dark overlay (e.g., bg-black/60) to ensure the login form and institutional logo stand out."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1782155789492-3ea097e779cf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGJsdWUlMjB0ZWNoJTIwbmV0d29yayUyMGRhdGElMjBjZW50ZXJ8ZW58MHx8fHwxNzgzNTIzMjQ0fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract blue tech network data center",
+        "category": "fallback_tech_background",
+        "instructions": "Use as a fallback pattern or for specific network-related banners/modals if needed."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install required dependencies: 'npm install recharts lucide-react sonner clsx tailwind-merge'.",
+    "Set up standard Shadcn components for Buttons, Inputs, Tables, Dialogs, Selects, and Dropdowns.",
+    "Do NOT use raw HTML elements for advanced components like Select or Dialogs; use customized Shadcn/Radix components to guarantee accessibility and consistent styling.",
+    "For the IP layout, ALWAYS use monospace font (IBM Plex Mono) when rendering IP addresses, subnets, or MAC addresses to maintain tabular alignment and readability.",
+    "Ensure the Dashboard uses Recharts to accurately display the specified charts (Pie chart for overall IPs, Bar chart for segment usage).",
+    "Implement a robust 'data-testid' strategy across the entire application to aid in automated end-to-end testing.",
+    "Construct a completely responsive collapsible sidebar (mobile-first approach, hamburger on mobile, expanded/collapsed toggle on desktop).",
+    "Theme support (Light/Dark) must be handled gracefully across all components. Ensure table borders and alternating rows remain visible in dark mode.",
+    "Generate dummy data based on 'Hospital Militar' context (e.g., Segments like 'Cardiology', 'Pediatrics', 'Administration', standard /24 subnets 192.168.1.x)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid generic, 'AI slop' aesthetics. Do not center everything. Create a professional, enterprise-grade density.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) only where it makes structural sense (navbars, sticky headers).",
+    "You MUST NOT apply universal transition (e.g., `transition: all`). Always add transitions for specific interactive properties.",
+    "You MUST NOT center align the app container, i.e., do not add `.App { text-align: center; }` in the CSS file. This disrupts human reading flow.",
+    "Always use modern button styles (subtle rounded corners, clear interactions) relevant to a professional ERP.",
+    "NEVER use AI assistant Emoji characters (🤖🧠💭💡) for icons. Use Phosphor or Lucide icons.",
+    "Every interaction needs micro-animations - hover states, transitions, selection states.",
+    "Use 2-3x more spacing than feels comfortable, except in data tables where dense spacing is preferred.",
+    "Do not use placeholder URLs (via.placeholder.com). Use the curated image URLs provided.",
+    "Use `sonner` for toast notifications (alerts, success messages like 'IP Asignada')."
+  ]
+}
