@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiError } from "@/services/api";
 import { toast } from "sonner";
+import BG from "@/assets/hospital.jpeg";
 
-const BG = "https://images.unsplash.com/photo-1709497197725-2e97c76b31d0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3NwaXRhbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3IlMjBibHVlJTIwc2t5fGVufDB8fHx8MTc4MzUyMzI0M3ww&ixlib=rb-4.1.0&q=85";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -46,7 +46,7 @@ export default function Login() {
             <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur grid place-items-center border border-white/20">
               <Shield className="w-6 h-6" />
             </div>
-            <span className="font-heading text-xl font-bold">Hospital KAROLINE</span>
+            <span className="font-heading text-xl font-bold">Hospital Militar</span>
           </div>
           <h1 className="font-heading text-4xl font-extrabold leading-tight mb-4">
             Sistema de Gestión de Direcciones IP
