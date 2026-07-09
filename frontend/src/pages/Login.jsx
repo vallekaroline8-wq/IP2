@@ -46,7 +46,7 @@ export default function Login() {
             <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur grid place-items-center border border-white/20">
               <Shield className="w-6 h-6" />
             </div>
-            <span className="font-heading text-xl font-bold">Hospital Militar</span>
+            <span className="font-heading text-xl font-bold">Hospital KAROLINE</span>
           </div>
           <h1 className="font-heading text-4xl font-extrabold leading-tight mb-4">
             Sistema de Gestión de Direcciones IP
