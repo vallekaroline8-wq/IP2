@@ -2,6 +2,7 @@ import bcrypt
 import jwt
 import os
 from datetime import datetime, timedelta
+from fastapi import HTTPException
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
@@ -24,3 +25,21 @@ def crear_token(usuario):
     }
 
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verificar_token(token: str):
+
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )
+
+        return payload
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
