@@ -20,7 +20,9 @@ import {
 import { confirmDelete, ok, fail } from "@/utils/ui";
 
 export default function Departamentos() {
-  const { can } = useAuth();
+  // 👇 CAMBIO 1
+  const { user, can } = useAuth();
+
   const L = useList("departamentos");
 
   const [open, setOpen] = useState(false);
@@ -104,6 +106,20 @@ export default function Departamentos() {
       fail(e);
     }
   };
+
+  // 👇 CAMBIO 2 (solo para depuración)
+  console.log("=================================");
+  console.log("USER:", user);
+  console.log("ROL:", user?.rol);
+  console.log(
+    "¿Puede agregar?",
+    can("administrador", "tecnico")
+  );
+  console.log(
+    "¿Puede eliminar?",
+    can("administrador")
+  );
+  console.log("=================================");
 
   return (
     <div>
