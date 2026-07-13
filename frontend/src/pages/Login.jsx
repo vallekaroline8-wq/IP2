@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiError } from "@/services/api";
 import { toast } from "sonner";
+import BG from "@/assets/hospital.jpeg";
 
-const BG = "https://images.unsplash.com/photo-1709497197725-2e97c76b31d0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3NwaXRhbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3IlMjBibHVlJTIwc2t5fGVufDB8fHx8MTc4MzUyMzI0M3ww&ixlib=rb-4.1.0&q=85";
 
 export default function Login() {
   const [username, setUsername] = useState("");
