@@ -26,7 +26,7 @@ export default function Login() {
     try {
       await login(username.trim(), password);
       toast.success("Bienvenido al sistema");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       toast.error(apiError(err?.response?.data?.detail) || "Error al iniciar sesión");
     } finally {

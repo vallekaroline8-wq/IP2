@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+
 import Login from "@/pages/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
@@ -17,8 +18,19 @@ import Bitacora from "@/pages/Bitacora";
 
 const Protected = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="h-screen grid place-items-center bg-background text-muted-foreground">Cargando…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+
+  if (loading) {
+    return (
+      <div className="h-screen grid place-items-center bg-background text-muted-foreground">
+        Cargando...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 };
 
@@ -28,9 +40,24 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Toaster richColors position="top-right" />
+
           <Routes>
+
+            {/* Redirige la raíz al Login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+
+            {/* Login */}
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Protected><DashboardLayout /></Protected>}>
+
+            {/* Dashboard protegido */}
+            <Route
+              path="/dashboard"
+              element={
+                <Protected>
+                  <DashboardLayout />
+                </Protected>
+              }
+            >
               <Route index element={<Dashboard />} />
               <Route path="departamentos" element={<Departamentos />} />
               <Route path="secciones" element={<Secciones />} />
@@ -41,7 +68,10 @@ function App() {
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="bitacora" element={<Bitacora />} />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+
+            {/* Cualquier ruta inválida envía al Login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+
           </Routes>
         </BrowserRouter>
       </AuthProvider>
