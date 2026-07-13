@@ -9,7 +9,6 @@ import { Toolbar, TableWrap, Th, Td, EmptyRow } from "@/components/Toolbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -20,35 +19,36 @@ import {
 import { confirmDelete, ok, fail } from "@/utils/ui";
 
 export default function Departamentos() {
-  // 👇 CAMBIO 1
   const { user, can } = useAuth();
 
   const L = useList("departamentos");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
   const [form, setForm] = useState({
     nombre: "",
-    descripcion: "",
   });
 
   const [saving, setSaving] = useState(false);
 
   const openNew = () => {
     setEditing(null);
+
     setForm({
       nombre: "",
-      descripcion: "",
     });
+
     setOpen(true);
   };
 
   const openEdit = (d) => {
     setEditing(d);
+
     setForm({
       nombre: d.nombre,
-      descripcion: d.descripcion || "",
     });
+
     setOpen(true);
   };
 
@@ -57,7 +57,7 @@ export default function Departamentos() {
       return fail({
         response: {
           data: {
-            detail: "El nombre es obligatorio",
+            detail: "El nombre del departamento es obligatorio.",
           },
         },
       });
@@ -69,14 +69,18 @@ export default function Departamentos() {
       if (editing) {
         await api.put(
           `/departamentos/${editing.id_departamento}`,
-          form
+          {
+            nombre: form.nombre,
+          }
         );
-        ok("Departamento actualizado");
+
+        ok("Departamento actualizado correctamente.");
       } else {
         await api.post("/departamentos", {
           nombre: form.nombre,
         });
-        ok("Departamento creado");
+
+        ok("Departamento creado correctamente.");
       }
 
       setOpen(false);
@@ -91,41 +95,37 @@ export default function Departamentos() {
   const del = async (d) => {
     if (
       !(await confirmDelete(
-        `Se eliminará el departamento "${d.nombre}"`
+        `¿Desea eliminar el departamento "${d.nombre}"?`
       ))
-    )
+    ) {
       return;
+    }
 
     try {
       await api.delete(
         `/departamentos/${d.id_departamento}`
       );
-      ok("Departamento eliminado");
+
+      ok("Departamento eliminado correctamente.");
+
       L.refetch();
     } catch (e) {
       fail(e);
     }
   };
 
-  // 👇 CAMBIO 2 (solo para depuración)
-  console.log("=================================");
-  console.log("USER:", user);
-  console.log("ROL:", user?.rol);
-  console.log(
-    "¿Puede agregar?",
-    can("administrador", "tecnico")
-  );
-  console.log(
-    "¿Puede eliminar?",
-    can("administrador")
-  );
-  console.log("=================================");
+  // Solo para depuración
+  console.log("========== DEPARTAMENTOS ==========");
+  console.log("Usuario:", user);
+  console.log("Rol:", user?.rol);
+  console.log("Puede administrar:", can("ADMINISTRADOR"));
+  console.log("===================================");
 
   return (
     <div>
       <PageHeader
         title="Departamentos"
-        subtitle="Gestión de departamentos del hospital"
+        subtitle="Gestión de departamentos del Hospital Militar"
       />
 
       <TableWrap>
@@ -134,18 +134,17 @@ export default function Departamentos() {
           setSearch={L.setSearch}
           onAdd={openNew}
           addLabel="Nuevo Departamento"
-          canAdd={can("administrador", "tecnico")}
+          canAdd={can("ADMINISTRADOR")}
         />
 
         {L.loading ? (
-          <TableSkeleton cols={3} />
+          <TableSkeleton cols={2} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted/40">
                 <tr>
                   <Th>Nombre</Th>
-                  <Th>Descripción</Th>
                   <Th className="text-right">
                     Acciones
                   </Th>
@@ -154,50 +153,36 @@ export default function Departamentos() {
 
               <tbody className="divide-y divide-border">
                 {L.items.length === 0 ? (
-                  <EmptyRow cols={3} />
+                  <EmptyRow cols={2} />
                 ) : (
                   L.items.map((d) => (
                     <tr
                       key={d.id_departamento}
                       className="hover:bg-accent/40 transition-colors"
-                      data-testid={`dep-row-${d.id_departamento}`}
                     >
                       <Td className="font-medium">
                         {d.nombre}
                       </Td>
 
-                      <Td className="text-muted-foreground">
-                        {d.descripcion || "-"}
-                      </Td>
-
                       <Td className="text-right">
-                        {can(
-                          "administrador",
-                          "tecnico"
-                        ) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              openEdit(d)
-                            }
-                            data-testid={`edit-${d.id_departamento}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
+                        {can("ADMINISTRADOR") && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(d)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
 
-                        {can("administrador") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              del(d)
-                            }
-                            data-testid={`del-${d.id_departamento}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => del(d)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </>
                         )}
                       </Td>
                     </tr>
@@ -224,9 +209,8 @@ export default function Departamentos() {
           <DialogHeader>
             <DialogTitle>
               {editing
-                ? "Editar"
-                : "Nuevo"}{" "}
-              Departamento
+                ? "Editar Departamento"
+                : "Nuevo Departamento"}
             </DialogTitle>
           </DialogHeader>
 
@@ -243,24 +227,6 @@ export default function Departamentos() {
                     nombre: e.target.value,
                   })
                 }
-                data-testid="form-nombre"
-              />
-            </div>
-
-            <div>
-              <Label>Descripción</Label>
-
-              <Textarea
-                className="mt-1.5"
-                value={form.descripcion}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    descripcion:
-                      e.target.value,
-                  })
-                }
-                data-testid="form-descripcion"
               />
             </div>
           </div>
@@ -268,9 +234,7 @@ export default function Departamentos() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() =>
-                setOpen(false)
-              }
+              onClick={() => setOpen(false)}
             >
               Cancelar
             </Button>
@@ -278,7 +242,6 @@ export default function Departamentos() {
             <Button
               onClick={save}
               disabled={saving}
-              data-testid="save-btn"
             >
               {saving && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
