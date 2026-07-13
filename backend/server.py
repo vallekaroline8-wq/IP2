@@ -7,6 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes.auth import router as auth_router
+from routes.dashboard import router as dashboard_router
+from routes.departamentos import router as departamentos_router
+from routes.secciones import router as secciones_router
 
 app = FastAPI(
     title="SIGIP API",
@@ -22,6 +25,10 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(dashboard_router)
+app.include_router(departamentos_router)
+app.include_router(secciones_router)
+
 
 @app.get("/")
 def inicio():

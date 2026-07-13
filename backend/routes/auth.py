@@ -16,27 +16,44 @@ security = HTTPBearer(auto_error=False)
 @router.post("/login")
 def login(datos: LoginRequest):
 
+    print("====================================")
+    print("Usuario recibido:", datos.username)
+
     usuario = login_usuario(datos.username)
 
+    print("Resultado de la consulta:", usuario)
+
     if not usuario:
+        print("❌ Usuario no encontrado")
         raise HTTPException(
             status_code=401,
             detail="Usuario no encontrado"
         )
 
+    print("Estado:", usuario["estado"])
+
     if usuario["estado"] != "ACTIVO":
+        print("❌ Usuario inactivo")
         raise HTTPException(
             status_code=401,
             detail="Usuario inactivo"
         )
 
+    print("Hash almacenado:", usuario["contrasena"])
+
     if not verificar_password(datos.password, usuario["contrasena"]):
+        print("❌ Contraseña incorrecta")
         raise HTTPException(
             status_code=401,
             detail="Contraseña incorrecta"
         )
 
+    print("✅ Contraseña correcta")
+
     token = crear_token(usuario)
+
+    print("✅ Token generado")
+    print("====================================")
 
     return {
         "token": token,
