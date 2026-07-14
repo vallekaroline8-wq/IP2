@@ -60,16 +60,15 @@ export default function Login() {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6 bg-background">
-        <div className="w-full max-w-md animate-fade-in">
-          <div className="rounded-[32px] bg-amber-50/95 border border-amber-200/80 shadow-2xl shadow-amber-900/10 p-8 md:p-10 text-center">
-            <div className="mb-6 flex justify-center">
-              <img src={Logo} alt="Logo Hospital Militar" className="h-28 w-auto rounded-3xl shadow-sm" />
-            </div>
+        <div className="w-full max-w-md animate-fade-in text-center">
+          <div className="mb-6 flex justify-center">
+            <img src={Logo} alt="Logo Hospital Militar" className="h-28 w-auto" />
+          </div>
 
-            <h2 className="font-heading text-3xl font-extrabold tracking-tight mb-2">Iniciar Sesión</h2>
-            <p className="text-muted-foreground mb-8">Ingrese sus credenciales para acceder al sistema.</p>
+          <h2 className="font-heading text-3xl font-extrabold tracking-tight mb-2">Iniciar Sesión</h2>
+          <p className="text-muted-foreground mb-8">Ingrese sus credenciales para acceder al sistema.</p>
 
-            <form onSubmit={submit} className="space-y-5 text-left">
+          <form onSubmit={submit} className="space-y-5 text-left">
               <div>
                 <Label htmlFor="username">Usuario</Label>
                 <div className="relative mt-1.5">
@@ -106,7 +105,6 @@ export default function Login() {
                 {loading ? "Ingresando…" : "Ingresar"}
               </Button>
             </form>
-          </div>
         </div>
       </div>
     </div>
