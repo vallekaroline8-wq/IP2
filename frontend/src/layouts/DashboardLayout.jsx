@@ -15,7 +15,6 @@ import {
   Sun,
   LogOut,
   ChevronRight,
-  Shield,
 } from "lucide-react";
 
 import { useTheme } from "@/context/ThemeContext";
@@ -86,8 +85,12 @@ export default function DashboardLayout() {
       } h-full`}
     >
       <div className="flex items-center gap-2.5 h-16 px-4 border-b border-border">
-        <div className="w-9 h-9 rounded-lg bg-primary grid place-items-center">
-          <Shield className="w-5 h-5 text-primary-foreground" />
+        <div className="w-9 h-9 rounded-lg bg-primary overflow-hidden grid place-items-center">
+          <img
+            src="/favicon.png"
+            alt="Logo Hospital Militar"
+            className="w-full h-full object-contain p-1"
+          />
         </div>
 
         {(!collapsed || mobile) && (
