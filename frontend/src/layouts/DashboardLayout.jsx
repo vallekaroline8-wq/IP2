@@ -34,8 +34,8 @@ import {
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/departamentos", label: "Departamentos", icon: Building2 },
-  { to: "/secciones", label: "Secciones", icon: Layers },
+  { to: "/departamentos", label: "Departamentos", icon: Building2, roles: ["administrador", "tecnico"] },
+  { to: "/secciones", label: "Secciones", icon: Layers, roles: ["administrador", "tecnico"] },
   { to: "/segmentos", label: "Segmentos", icon: Network },
   { to: "/ips", label: "Direcciones IP", icon: Router },
   { to: "/equipos", label: "Equipos", icon: Monitor },
