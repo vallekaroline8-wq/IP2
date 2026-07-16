@@ -6,7 +6,7 @@ from database.conexion import get_connection
 
 def obtener_secciones():
     """
-    Obtiene todas las secciones junto con su departamento.
+    Obtiene todas las secciones activas junto con su departamento.
     """
 
     conexion = get_connection()
@@ -23,6 +23,7 @@ def obtener_secciones():
             FROM tbl_seccion s
             INNER JOIN tbl_departamento d
                 ON s.id_departamento = d.id_departamento
+            WHERE s.id_estado = 1
             ORDER BY d.nombre ASC, s.nombre ASC
         """
 
@@ -37,8 +38,9 @@ def obtener_secciones():
         )
 
     finally:
-        cursor.close()
-        conexion.close()
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
 
 
 def crear_seccion(nombre, id_departamento):
@@ -57,14 +59,16 @@ def crear_seccion(nombre, id_departamento):
     conexion = get_connection()
 
     try:
+
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar que exista el departamento
+        # Verificar que exista el departamento y esté activo
         cursor.execute(
             """
             SELECT id_departamento
             FROM tbl_departamento
             WHERE id_departamento = %s
+            AND id_estado = 1
             """,
             (id_departamento,)
         )
@@ -75,13 +79,14 @@ def crear_seccion(nombre, id_departamento):
                 detail="El departamento no existe."
             )
 
-        # Verificar que no exista otra sección igual
+        # Verificar nombre repetido
         cursor.execute(
             """
             SELECT id_seccion
             FROM tbl_seccion
             WHERE nombre = %s
             AND id_departamento = %s
+            AND id_estado = 1
             """,
             (nombre, id_departamento)
         )
@@ -96,10 +101,23 @@ def crear_seccion(nombre, id_departamento):
 
         cursor.execute(
             """
-            INSERT INTO tbl_seccion(nombre, id_departamento)
-            VALUES(%s, %s)
+            INSERT INTO tbl_seccion
+            (
+                nombre,
+                id_departamento,
+                id_estado
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                1
+            )
             """,
-            (nombre, id_departamento)
+            (
+                nombre,
+                id_departamento
+            )
         )
 
         conexion.commit()
@@ -113,6 +131,7 @@ def crear_seccion(nombre, id_departamento):
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
@@ -121,8 +140,9 @@ def crear_seccion(nombre, id_departamento):
         )
 
     finally:
-        cursor.close()
-        conexion.close()
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
 
 
 def actualizar_seccion(id_seccion, nombre, id_departamento):
@@ -141,14 +161,16 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
     conexion = get_connection()
 
     try:
+
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar que exista la sección
+        # Verificar que exista la sección y esté activa
         cursor.execute(
             """
             SELECT id_seccion
             FROM tbl_seccion
             WHERE id_seccion = %s
+            AND id_estado = 1
             """,
             (id_seccion,)
         )
@@ -159,12 +181,13 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
                 detail="La sección no existe."
             )
 
-        # Verificar que exista el departamento
+        # Verificar que exista el departamento y esté activo
         cursor.execute(
             """
             SELECT id_departamento
             FROM tbl_departamento
             WHERE id_departamento = %s
+            AND id_estado = 1
             """,
             (id_departamento,)
         )
@@ -183,8 +206,13 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
             WHERE nombre = %s
             AND id_departamento = %s
             AND id_seccion <> %s
+            AND id_estado = 1
             """,
-            (nombre, id_departamento, id_seccion)
+            (
+                nombre,
+                id_departamento,
+                id_seccion
+            )
         )
 
         if cursor.fetchone():
@@ -198,11 +226,16 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
         cursor.execute(
             """
             UPDATE tbl_seccion
-            SET nombre = %s,
+            SET
+                nombre = %s,
                 id_departamento = %s
             WHERE id_seccion = %s
             """,
-            (nombre, id_departamento, id_seccion)
+            (
+                nombre,
+                id_departamento,
+                id_seccion
+            )
         )
 
         conexion.commit()
@@ -215,6 +248,7 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
@@ -223,26 +257,29 @@ def actualizar_seccion(id_seccion, nombre, id_departamento):
         )
 
     finally:
-        cursor.close()
-        conexion.close()
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
 
 
 def eliminar_seccion(id_seccion):
     """
-    Elimina una sección.
+    Desactiva una sección (eliminación lógica).
     """
 
     conexion = get_connection()
 
     try:
+
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar que exista
+        # Verificar que exista y esté activa
         cursor.execute(
             """
             SELECT id_seccion
             FROM tbl_seccion
             WHERE id_seccion = %s
+            AND id_estado = 1
             """,
             (id_seccion,)
         )
@@ -257,8 +294,8 @@ def eliminar_seccion(id_seccion):
 
         cursor.execute(
             """
-            DELETE
-            FROM tbl_seccion
+            UPDATE tbl_seccion
+            SET id_estado = 2
             WHERE id_seccion = %s
             """,
             (id_seccion,)
@@ -267,20 +304,22 @@ def eliminar_seccion(id_seccion):
         conexion.commit()
 
         return {
-            "mensaje": "Sección eliminada correctamente."
+            "mensaje": "Sección desactivada correctamente."
         }
 
     except HTTPException:
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Error al eliminar sección: {str(e)}"
+            detail=f"Error al desactivar sección: {str(e)}"
         )
 
     finally:
-        cursor.close()
-        conexion.close()
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()

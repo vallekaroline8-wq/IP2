@@ -1,9 +1,17 @@
 from fastapi import APIRouter
 
-from models.usuario_model import UsuarioCreate
+from models.usuario_model import (
+    UsuarioCreate,
+    UsuarioUpdate,
+    PasswordUpdate
+)
+
 from procedures.usuariosmodulo import (
     obtener_usuarios,
-    crear_usuario
+    crear_usuario,
+    actualizar_usuario,
+    eliminar_usuario,
+    cambiar_password
 )
 
 router = APIRouter(
@@ -15,7 +23,7 @@ router = APIRouter(
 @router.get(
     "",
     summary="Listar Usuarios",
-    description="Obtiene todos los usuarios registrados."
+    description="Obtiene únicamente los usuarios activos."
 )
 def listar_usuarios():
     return obtener_usuarios()
@@ -31,5 +39,48 @@ def nuevo_usuario(datos: UsuarioCreate):
         datos.nombre,
         datos.usuario,
         datos.contrasena,
-        datos.rol
+        datos.rol,
+        datos.id_estado
     )
+
+
+@router.put(
+    "/{id_usuario}",
+    summary="Editar Usuario",
+    description="Actualiza la información de un usuario."
+)
+def editar_usuario(
+    id_usuario: int,
+    datos: UsuarioUpdate
+):
+    return actualizar_usuario(
+        id_usuario,
+        datos.nombre,
+        datos.usuario,
+        datos.rol,
+        datos.id_estado
+    )
+
+
+@router.put(
+    "/{id_usuario}/password",
+    summary="Cambiar Contraseña",
+    description="Actualiza la contraseña de un usuario."
+)
+def actualizar_password(
+    id_usuario: int,
+    datos: PasswordUpdate
+):
+    return cambiar_password(
+        id_usuario,
+        datos.contrasena
+    )
+
+
+@router.delete(
+    "/{id_usuario}",
+    summary="Desactivar Usuario",
+    description="Realiza una eliminación lógica cambiando el estado del usuario a INACTIVO."
+)
+def borrar_usuario(id_usuario: int):
+    return eliminar_usuario(id_usuario)

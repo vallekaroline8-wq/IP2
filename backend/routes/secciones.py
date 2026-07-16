@@ -17,7 +17,7 @@ router = APIRouter(
 @router.get(
     "",
     summary="Listar Secciones",
-    description="Obtiene todas las secciones."
+    description="Obtiene únicamente las secciones activas."
 )
 def listar_secciones():
     return obtener_secciones()
@@ -38,7 +38,7 @@ def nueva_seccion(datos: SeccionCreate):
 @router.put(
     "/{id_seccion}",
     summary="Editar Sección",
-    description="Actualiza una sección."
+    description="Actualiza una sección existente."
 )
 def editar_seccion(
     id_seccion: int,
@@ -53,8 +53,8 @@ def editar_seccion(
 
 @router.delete(
     "/{id_seccion}",
-    summary="Eliminar Sección",
-    description="Elimina una sección."
+    summary="Desactivar Sección",
+    description="Realiza una eliminación lógica cambiando el estado de la sección a INACTIVO."
 )
 def borrar_seccion(id_seccion: int):
     return eliminar_seccion(id_seccion)
