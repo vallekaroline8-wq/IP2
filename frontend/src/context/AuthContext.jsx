@@ -51,7 +51,14 @@ export const AuthProvider = ({ children }) => {
   const can = (...roles) => {
     if (!user) return false;
 
-    return roles.includes(user.rol);
+    const role = String(user?.rol ?? "").trim().toLowerCase();
+    const allowedRoles = roles.map((r) => String(r ?? "").trim().toLowerCase());
+
+    if (role === "administrador" || role === "admin") {
+      return true;
+    }
+
+    return allowedRoles.includes(role);
   };
 
   // ====== DEBUG ======

@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { confirmDelete, ok, fail } from "@/utils/ui";
 
 const roleLabels = { administrador: "Administrador", tecnico: "Técnico", consulta: "Consulta" };
-const empty = { nombre: "", username: "", password: "", role: "consulta", activo: true };
+const empty = { nombre: "", username: "", password: "", confirmPassword: "", role: "consulta" };
 
 export default function Usuarios() {
   const L = useList("usuarios");
@@ -28,14 +28,32 @@ export default function Usuarios() {
   const [pw, setPw] = useState("");
 
   const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
-  const openEdit = (u) => { setEditing(u); setForm({ nombre: u.nombre, username: u.username, password: "", role: u.role, activo: u.activo }); setOpen(true); };
+  const openEdit = (u) => { setEditing(u); setForm({ nombre: u.nombre, username: u.username, password: "", confirmPassword: "", role: u.role }); setOpen(true); };
 
   const save = async () => {
-    if (!form.nombre.trim() || !form.username.trim() || (!editing && !form.password)) return fail({ response: { data: { detail: "Complete nombre, usuario y contraseña" } } });
+    if (!form.nombre.trim() || !form.username.trim() || (!editing && !form.password)) {
+      return fail({ response: { data: { detail: "Complete nombre, usuario y contraseña" } } });
+    }
+
+    if (form.password && form.password !== form.confirmPassword) {
+      return fail({ response: { data: { detail: "Las contraseñas no coinciden" } } });
+    }
+
     setSaving(true);
     try {
-      if (editing) await api.put(`/usuarios/${editing.id}`, form);
-      else await api.post("/usuarios", form);
+      const payload = {
+        nombre: form.nombre,
+        username: form.username,
+        role: form.role,
+      };
+
+      if (form.password) {
+        payload.password = form.password;
+      }
+
+      if (editing) await api.put(`/usuarios/${editing.id}`, payload);
+      else await api.post("/usuarios", payload);
+
       ok(editing ? "Usuario actualizado" : "Usuario creado");
       setOpen(false); L.refetch();
     } catch (e) { fail(e); } finally { setSaving(false); }
@@ -88,6 +106,7 @@ export default function Usuarios() {
             <div><Label>Nombre completo</Label><Input className="mt-1.5" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} data-testid="form-nombre" /></div>
             <div><Label>Usuario</Label><Input className="mt-1.5" value={form.username} disabled={!!editing} onChange={(e) => setForm({ ...form, username: e.target.value })} data-testid="form-username" /></div>
             <div><Label>Contraseña {editing && <span className="text-muted-foreground text-xs">(dejar vacío para no cambiar)</span>}</Label><Input type="password" className="mt-1.5" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="form-password" /></div>
+            <div><Label>Confirmar contraseña</Label><Input type="password" className="mt-1.5" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} data-testid="form-confirm-password" /></div>
             <div>
               <Label>Rol</Label>
               <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
@@ -95,7 +114,6 @@ export default function Usuarios() {
                 <SelectContent><SelectItem value="administrador">Administrador</SelectItem><SelectItem value="tecnico">Técnico</SelectItem><SelectItem value="consulta">Consulta</SelectItem></SelectContent>
               </Select>
             </div>
-            <label className="flex items-center justify-between"><span className="text-sm">Usuario activo</span><Switch checked={form.activo} onCheckedChange={(v) => setForm({ ...form, activo: v })} data-testid="form-activo" /></label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
