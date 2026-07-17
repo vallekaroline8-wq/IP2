@@ -70,17 +70,35 @@ export function useList(resource, extraParams = {}) {
 export function useOptions(resource) {
   const [options, setOptions] = useState([]);
 
-  useEffect(() => {
+    useEffect(() => {
     api
       .get(`/${resource}`, { params: { all: true } })
       .then((r) => {
-        if (Array.isArray(r.data)) {
-          setOptions(r.data);
-        } else {
-          setOptions(r.data.items || []);
-        }
+
+        const datos = Array.isArray(r.data)
+          ? r.data
+          : (r.data.items || []);
+
+        const opciones = datos.map((item) => ({
+          id:
+            item.id ??
+            item.id_equipo ??
+            item.id_segmento ??
+            item.id_departamento ??
+            item.id_seccion ??
+            item.id_tipo,
+
+          nombre:
+            item.nombre ??
+            item.nombre_equipo,
+        }));
+
+        setOptions(opciones);
       })
-      .catch(() => {});
+      .catch(() => {
+        setOptions([]);
+      });
+
   }, [resource]);
 
   return options;

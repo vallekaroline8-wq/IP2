@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from procedures.equipo_procedure import obtener_equipos
 
 router = APIRouter(
-    prefix="/equipos",
+    prefix="/api/equipos",
     tags=["Equipos"]
 )
 
