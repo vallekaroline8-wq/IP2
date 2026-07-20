@@ -18,3 +18,7 @@ class UsuarioUpdate(BaseModel):
 
 class PasswordUpdate(BaseModel):
     contrasena: str
+
+
+class UsuarioEstado(BaseModel):
+    id_estado: int

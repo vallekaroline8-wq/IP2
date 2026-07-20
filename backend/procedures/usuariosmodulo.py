@@ -4,7 +4,6 @@ from passlib.hash import bcrypt
 
 from database.conexion import get_connection
 
-
 ROLES_VALIDOS = [
     "ADMINISTRADOR",
     "TECNICO"
@@ -29,7 +28,7 @@ def obtener_usuarios():
             FROM tbl_usuario u
             INNER JOIN tbl_estado e
                 ON u.id_estado = e.id_estado
-            WHERE u.id_estado = 1
+            WHERE u.id_estado IN (1, 2)
             ORDER BY u.nombre ASC
         """
         cursor.execute(consulta_sql)
@@ -167,10 +166,9 @@ def crear_usuario(
     finally:
         if conexion.is_connected():
             cursor.close()
-            conexion.close() 
+            conexion.close()
 
 
-# Se corrigió la indentación de esta función para que esté a nivel global
 def actualizar_usuario(
     id_usuario,
     nombre,
@@ -306,7 +304,7 @@ def eliminar_usuario(id_usuario):
             SELECT id_usuario
             FROM tbl_usuario
             WHERE id_usuario = %s
-              AND id_estado = 1
+              AND id_estado IN (1, 2)
         """
         cursor.execute(consulta_sql, (id_usuario,))
 
@@ -321,7 +319,7 @@ def eliminar_usuario(id_usuario):
 
         consulta_sql = """
             UPDATE tbl_usuario
-            SET id_estado = 2
+            SET id_estado = 6
             WHERE id_usuario = %s
         """
         cursor.execute(consulta_sql, (id_usuario,))
@@ -397,6 +395,76 @@ def cambiar_password(id_usuario, contrasena):
         raise HTTPException(
             status_code=500,
             detail=f"Error al actualizar contraseña: {str(e)}"
+        )
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+
+def cambiar_estado_usuario(id_usuario, id_estado):
+    """
+    Activa o desactiva un usuario.
+    """
+    conexion = get_connection()
+    try:
+        cursor = conexion.cursor(dictionary=True)
+
+        # Verificar que exista el usuario
+        consulta_sql = """
+            SELECT id_usuario
+            FROM tbl_usuario
+            WHERE id_usuario = %s
+        """
+        cursor.execute(consulta_sql, (id_usuario,))
+
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=404,
+                detail="El usuario no existe."
+            )
+
+        # Verificar estado
+        consulta_sql = """
+            SELECT id_estado
+            FROM tbl_estado
+            WHERE id_estado = %s
+        """
+        cursor.execute(consulta_sql, (id_estado,))
+
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=404,
+                detail="Estado inválido."
+            )
+
+        cursor.close()
+        cursor = conexion.cursor()
+
+        consulta_sql = """
+            UPDATE tbl_usuario
+            SET id_estado = %s
+            WHERE id_usuario = %s
+        """
+        cursor.execute(
+            consulta_sql,
+            (
+                id_estado,
+                id_usuario
+            )
+        )
+        conexion.commit()
+
+        return {
+            "mensaje": "Estado actualizado correctamente."
+        }
+    except HTTPException:
+        raise
+    except Error as e:
+        conexion.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al actualizar estado: {str(e)}"
         )
     finally:
         if conexion.is_connected():

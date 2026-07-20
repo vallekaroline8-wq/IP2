@@ -3,7 +3,8 @@ from fastapi import APIRouter
 from models.usuario_model import (
     UsuarioCreate,
     UsuarioUpdate,
-    PasswordUpdate
+    PasswordUpdate,
+    UsuarioEstado
 )
 
 from procedures.usuariosmodulo import (
@@ -11,7 +12,8 @@ from procedures.usuariosmodulo import (
     crear_usuario,
     actualizar_usuario,
     eliminar_usuario,
-    cambiar_password
+    cambiar_password,
+    cambiar_estado_usuario
 )
 
 router = APIRouter(
@@ -74,6 +76,21 @@ def actualizar_password(
     return cambiar_password(
         id_usuario,
         datos.contrasena
+    )
+
+
+@router.put(
+    "/{id_usuario}/estado",
+    summary="Cambiar Estado",
+    description="Activa o desactiva un usuario."
+)
+def actualizar_estado(
+    id_usuario: int,
+    datos: UsuarioEstado
+):
+    return cambiar_estado_usuario(
+        id_usuario,
+        datos.id_estado
     )
 
 
