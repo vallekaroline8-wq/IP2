@@ -18,6 +18,7 @@ import { confirmAction, ok, fail } from "@/utils/ui";
 export default function Asignaciones() {
   const { can } = useAuth();
   const equipos = useOptions("asignaciones/equipos");
+ const segs = useOptions("asignaciones/segmentos");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

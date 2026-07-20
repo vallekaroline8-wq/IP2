@@ -31,6 +31,16 @@ app.include_router(departamentos_router)
 app.include_router(usuarios_router)
 app.include_router(asignaciones_router)
 
+# ==========================================
+# MOSTRAR RUTAS REGISTRADAS
+# ==========================================
+
+print("\n========== RUTAS REGISTRADAS ==========\n")
+
+for ruta in app.routes:
+    print(f"{ruta.methods} -> {ruta.path}")
+
+print("\n=======================================\n")
 
 
 @app.get("/")
@@ -38,3 +48,18 @@ def inicio():
     return {
         "mensaje": "SIGIP Backend MySQL funcionando"
     }
+
+
+# ==========================================
+# DEBUG DE RUTAS
+# ==========================================
+
+@app.get("/debug-rutas")
+def debug_rutas():
+    return [
+        {
+            "path": ruta.path,
+            "methods": list(ruta.methods)
+        }
+        for ruta in app.routes
+    ]

@@ -1,5 +1,10 @@
 from fastapi import APIRouter
-from procedures.asignaciones import obtener_equipos
+
+from procedures.asignaciones import (
+    obtener_asignaciones,
+    obtener_equipos,
+    obtener_segmentos
+)
 
 router = APIRouter(
     prefix="/api/asignaciones",
@@ -7,6 +12,40 @@ router = APIRouter(
 )
 
 
-@router.get("/equipos")
+# ==========================================
+# LISTAR ASIGNACIONES
+# ==========================================
+
+@router.get(
+    "",
+    summary="Listar Asignaciones",
+    description="Obtiene todas las asignaciones de direcciones IP."
+)
+def listar_asignaciones(page: int = 1):
+    return obtener_asignaciones(page)
+
+
+# ==========================================
+# COMBO EQUIPOS
+# ==========================================
+
+@router.get(
+    "/equipos",
+    summary="Listar Equipos",
+    description="Obtiene los equipos activos."
+)
 def listar_equipos():
     return obtener_equipos()
+
+
+# ==========================================
+# COMBO SEGMENTOS
+# ==========================================
+
+@router.get(
+    "/segmentos",
+    summary="Listar Segmentos",
+    description="Obtiene los segmentos activos."
+)
+def listar_segmentos():
+    return obtener_segmentos()
