@@ -1,7 +1,6 @@
+from database.conexion import get_connection
 from fastapi import HTTPException
 from mysql.connector import Error
-
-from database.conexion import get_connection
 
 
 # ==========================================
@@ -27,26 +26,36 @@ def obtener_asignaciones(page: int = 1):
 
         consulta_sql = """
             SELECT
-                ai.id_asignacion,
-                ip.direccion_ip,
-                e.nombre_equipo,
+                ai.id_asignacion AS id,
+                ip.direccion_ip AS ip_direccion,
+                e.nombre_equipo AS equipo_nombre,
                 ai.fecha_asignacion,
                 ai.fecha_liberacion,
-                ai.estado_asignacion
+                ai.estado_asignacion,
+
+                CASE
+                    WHEN ai.estado_asignacion = 'ACTIVA' THEN TRUE
+                    ELSE FALSE
+                END AS activo
+
             FROM tbl_asignacion_ip ai
+
             INNER JOIN tbl_ip ip
-                ON ip.id_ip = ai.id_ip
+                ON ai.id_ip = ip.id_ip
+
             INNER JOIN tbl_equipo e
-                ON e.id_equipo = ai.id_equipo
+                ON ai.id_equipo = e.id_equipo
+
             ORDER BY ai.id_asignacion DESC
-            LIMIT %s OFFSET %s
+
+            LIMIT %s, %s
         """
 
         cursor.execute(
             consulta_sql,
             (
-                page_size,
-                offset
+                offset,
+                page_size
             )
         )
 
@@ -82,84 +91,66 @@ def obtener_asignaciones(page: int = 1):
 
 
 # ==========================================
-# COMBO DE EQUIPOS
+# COMBO EQUIPOS
 # ==========================================
 
 def obtener_equipos():
-    """
-    Obtiene los equipos activos.
-    """
 
     conexion = get_connection()
 
     try:
-
         cursor = conexion.cursor(dictionary=True)
 
-        consulta_sql = """
+        cursor.execute("""
             SELECT
                 id_equipo AS id,
                 nombre_equipo AS nombre
             FROM tbl_equipo
             WHERE id_estado = 1
-            ORDER BY nombre_equipo ASC
-        """
-
-        cursor.execute(consulta_sql)
+            ORDER BY nombre_equipo
+        """)
 
         return cursor.fetchall()
 
     except Error as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Error al obtener equipos: {str(e)}"
+            detail=str(e)
         )
 
     finally:
-
-        if conexion.is_connected():
-            cursor.close()
-            conexion.close()
+        cursor.close()
+        conexion.close()
 
 
 # ==========================================
-# COMBO DE SEGMENTOS
+# COMBO SEGMENTOS
 # ==========================================
 
 def obtener_segmentos():
-    """
-    Obtiene los segmentos activos.
-    """
 
     conexion = get_connection()
 
     try:
-
         cursor = conexion.cursor(dictionary=True)
 
-        consulta_sql = """
+        cursor.execute("""
             SELECT
                 id_segmento AS id,
                 nombre
             FROM tbl_segmento
             WHERE id_estado = 1
-            ORDER BY nombre ASC
-        """
-
-        cursor.execute(consulta_sql)
+            ORDER BY nombre
+        """)
 
         return cursor.fetchall()
 
     except Error as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Error al obtener segmentos: {str(e)}"
+            detail=str(e)
         )
 
     finally:
-
-        if conexion.is_connected():
-            cursor.close()
-            conexion.close()
+        cursor.close()
+        conexion.close()
