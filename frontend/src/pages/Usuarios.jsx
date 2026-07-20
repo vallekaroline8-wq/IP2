@@ -3,7 +3,6 @@ import {
   Pencil,
   Trash2,
   Loader2,
-  Eye,
 } from "lucide-react";
 
 import api from "@/services/api";
@@ -60,8 +59,32 @@ const empty = {
   usuario: "",
   contrasena: "",
   confirmarContrasena: "",
-  rol: "TECNICO",
+  rol: "",
   id_estado: 1,
+};
+
+const validatePassword = (password) => {
+  if (!password) {
+    return "Ingrese una contraseña.";
+  }
+
+  if (password.length < 8) {
+    return "La contraseña debe tener al menos 8 caracteres.";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "La contraseña debe incluir al menos una minúscula.";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "La contraseña debe incluir al menos una mayúscula.";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "La contraseña debe incluir al menos un carácter especial.";
+  }
+
+  return "";
 };
 
 export default function Usuarios() {
@@ -69,12 +92,6 @@ export default function Usuarios() {
 
   // Modal Crear / Editar
   const [open, setOpen] = useState(false);
-
-  // Modal Ver
-  const [viewOpen, setViewOpen] = useState(false);
-
-  // Usuario seleccionado para ver
-  const [viewUser, setViewUser] = useState(null);
 
   // Usuario en edición
   const [editing, setEditing] = useState(null);
@@ -84,6 +101,32 @@ export default function Usuarios() {
 
   // Estado de guardado
   const [saving, setSaving] = useState(false);
+
+  const getPasswordStrength = (password) => {
+    if (!password) {
+      return { score: 0, label: "Sin contraseña", color: "bg-muted" };
+    }
+
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+    if (score <= 1) {
+      return { score, label: "Débil", color: "bg-red-500" };
+    }
+
+    if (score === 2) {
+      return { score, label: "Regular", color: "bg-yellow-500" };
+    }
+
+    if (score === 3) {
+      return { score, label: "Buena", color: "bg-blue-500" };
+    }
+
+    return { score, label: "Fuerte", color: "bg-green-500" };
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -104,10 +147,7 @@ export default function Usuarios() {
     setOpen(true);
   };
 
-  const openView = (u) => {
-    setViewUser(u);
-    setViewOpen(true);
-  };
+  const passwordStrength = getPasswordStrength(form.contrasena);
 
   const save = async () => {
     if (!form.nombre.trim() || !form.usuario.trim()) {
@@ -128,6 +168,19 @@ export default function Usuarios() {
           },
         },
       });
+    }
+
+    if (form.contrasena) {
+      const passwordError = validatePassword(form.contrasena);
+      if (passwordError) {
+        return fail({
+          response: {
+            data: {
+              detail: passwordError,
+            },
+          },
+        });
+      }
     }
 
     if (
@@ -237,15 +290,11 @@ export default function Usuarios() {
         </Button>
       </PageHeader>
 
-      {/* Barra de búsqueda u otras utilidades */}
-      <Toolbar>
-        <Input
-          placeholder="Buscar por nombre o usuario..."
-          value={L.params?.q || ""}
-          onChange={(e) => L.setParams({ ...L.params, q: e.target.value })}
-          className="max-w-xs"
-        />
-      </Toolbar>
+      {/* Barra de búsqueda reutilizable */}
+      <Toolbar
+        search={L.search}
+        setSearch={L.setSearch}
+      />
 
       {/* Tabla de Datos */}
       <TableWrap>
@@ -278,15 +327,6 @@ export default function Usuarios() {
                     />
                   </Td>
                   <Td className="text-right space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Ver usuario"
-                      onClick={() => openView(u)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-
                     <Button
                       variant="ghost"
                       size="icon"
@@ -348,22 +388,6 @@ export default function Usuarios() {
             </div>
 
             <div>
-              <Label htmlFor="rol">Rol</Label>
-              <Select
-                value={form.rol}
-                onValueChange={(val) => setForm({ ...form, rol: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TECNICO">Técnico</SelectItem>
-                  <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
               <Label htmlFor="contrasena">
                 Contraseña {editing && "(Dejar en blanco para mantener actual)"}
               </Label>
@@ -374,6 +398,18 @@ export default function Usuarios() {
                 onChange={(e) => setForm({ ...form, contrasena: e.target.value })}
                 placeholder="••••••••"
               />
+              <div className="mt-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Seguridad de contraseña</span>
+                  <span>{passwordStrength.label}</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${passwordStrength.color}`}
+                    style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -385,6 +421,23 @@ export default function Usuarios() {
                 onChange={(e) => setForm({ ...form, confirmarContrasena: e.target.value })}
                 placeholder="••••••••"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="rol">Rol</Label>
+              <Select
+                value={form.rol || undefined}
+                onValueChange={(val) => setForm({ ...form, rol: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Seleccione un rol">Seleccione un rol...</SelectItem>
+                  <SelectItem value="TECNICO">Técnico</SelectItem>
+                  <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -406,44 +459,6 @@ export default function Usuarios() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Ver Información del Usuario */}
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Información del Usuario</DialogTitle>
-          </DialogHeader>
-
-          {viewUser && (
-            <div className="space-y-4 py-2">
-              <div>
-                <Label>Nombre</Label>
-                <Input value={viewUser.nombre} readOnly disabled />
-              </div>
-
-              <div>
-                <Label>Usuario</Label>
-                <Input value={viewUser.usuario} readOnly disabled />
-              </div>
-
-              <div>
-                <Label>Rol</Label>
-                <Input value={roleLabels[viewUser.rol] || viewUser.rol} readOnly disabled />
-              </div>
-
-              <div>
-                <Label>Estado</Label>
-                <Input value={viewUser.estado || (viewUser.id_estado === 1 ? "Activo" : "Inactivo")} readOnly disabled />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button onClick={() => setViewOpen(false)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

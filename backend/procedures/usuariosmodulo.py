@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from mysql.connector import Error
-from passlib.hash import bcrypt
+import hashlib
 
 from database.conexion import get_connection
 
@@ -10,13 +10,40 @@ ROLES_VALIDOS = [
 ]
 
 
-def obtener_usuarios():
+def _validar_contrasena(contrasena):
+    if len(contrasena) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe tener al menos 8 caracteres."
+        )
+
+    if not any(c.islower() for c in contrasena):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe incluir al menos una minúscula."
+        )
+
+    if not any(c.isupper() for c in contrasena):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe incluir al menos una mayúscula."
+        )
+
+    if not any(not c.isalnum() for c in contrasena):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe incluir al menos un carácter especial."
+        )
+
+
+def obtener_usuarios(search=""):
     """
-    Obtiene únicamente los usuarios activos.
+    Obtiene únicamente los usuarios activos, opcionalmente filtrados por nombre o usuario.
     """
     conexion = get_connection()
     try:
         cursor = conexion.cursor(dictionary=True)
+        search_term = f"%{search.strip()}%" if search else "%"
         consulta_sql = """
             SELECT
                 u.id_usuario,
@@ -29,9 +56,13 @@ def obtener_usuarios():
             INNER JOIN tbl_estado e
                 ON u.id_estado = e.id_estado
             WHERE u.id_estado IN (1, 2)
+              AND (
+                    u.nombre LIKE %s
+                 OR u.usuario LIKE %s
+              )
             ORDER BY u.nombre ASC
         """
-        cursor.execute(consulta_sql)
+        cursor.execute(consulta_sql, (search_term, search_term))
         return cursor.fetchall()
     except Error as e:
         raise HTTPException(
@@ -76,6 +107,8 @@ def crear_usuario(
             detail="La contraseña es obligatoria."
         )
 
+    _validar_contrasena(contrasena)
+
     if rol not in ROLES_VALIDOS:
         raise HTTPException(
             status_code=400,
@@ -115,7 +148,7 @@ def crear_usuario(
                 detail="El estado seleccionado no existe."
             )
 
-        password_hash = bcrypt.hash(contrasena)
+        password_hash = hashlib.sha256(contrasena.encode("utf-8")).hexdigest()
 
         # Cerramos el cursor anterior antes de abrir uno nuevo sin diccionario
         cursor.close()
@@ -354,6 +387,8 @@ def cambiar_password(id_usuario, contrasena):
             detail="La contraseña es obligatoria."
         )
 
+    _validar_contrasena(contrasena)
+
     conexion = get_connection()
     try:
         cursor = conexion.cursor(dictionary=True)
@@ -372,7 +407,7 @@ def cambiar_password(id_usuario, contrasena):
                 detail="El usuario no existe."
             )
 
-        password_hash = bcrypt.hash(contrasena)
+        password_hash = hashlib.sha256(contrasena.encode("utf-8")).hexdigest()
 
         cursor.close()
         cursor = conexion.cursor()
