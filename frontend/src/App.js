@@ -7,7 +7,6 @@ import Login from "@/pages/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Departamentos from "@/pages/Departamentos";
-import Secciones from "@/pages/Secciones";
 import Segmentos from "@/pages/Segmentos";
 import DireccionesIP from "@/pages/DireccionesIP";
 import Equipos from "@/pages/Equipos";
@@ -47,14 +46,6 @@ function App() {
                 element={
                   <RequireRole roles={["administrador", "tecnico"]}>
                     <Departamentos />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="secciones"
-                element={
-                  <RequireRole roles={["administrador", "tecnico"]}>
-                    <Secciones />
                   </RequireRole>
                 }
               />

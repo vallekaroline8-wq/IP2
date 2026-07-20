@@ -3,7 +3,6 @@ import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
-  Layers,
   Network,
   Router,
   Monitor,
@@ -14,7 +13,6 @@ import {
   Moon,
   Sun,
   LogOut,
-  ChevronRight,
 } from "lucide-react";
 
 import { useTheme } from "@/context/ThemeContext";
@@ -32,15 +30,50 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/departamentos", label: "Departamentos", icon: Building2, roles: ["administrador", "tecnico"] },
-  { to: "/secciones", label: "Secciones", icon: Layers, roles: ["administrador", "tecnico"] },
-  { to: "/segmentos", label: "Segmentos", icon: Network },
-  { to: "/ips", label: "Direcciones IP", icon: Router },
-  { to: "/equipos", label: "Equipos", icon: Monitor },
-  { to: "/asignaciones", label: "Asignaciones", icon: Link2 },
-  { to: "/usuarios", label: "Usuarios", icon: Users, roles: ["administrador"] },
-  { to: "/bitacora", label: "Bitácora", icon: ScrollText, roles: ["administrador", "tecnico"] },
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    to: "/departamentos",
+    label: "Departamentos",
+    icon: Building2,
+    roles: ["administrador", "tecnico"],
+  },
+  {
+    to: "/segmentos",
+    label: "Segmentos",
+    icon: Network,
+  },
+  {
+    to: "/ips",
+    label: "Direcciones IP",
+    icon: Router,
+  },
+  {
+    to: "/equipos",
+    label: "Equipos",
+    icon: Monitor,
+  },
+  {
+    to: "/asignaciones",
+    label: "Asignaciones",
+    icon: Link2,
+  },
+  {
+    to: "/usuarios",
+    label: "Usuarios",
+    icon: Users,
+    roles: ["administrador"],
+  },
+  {
+    to: "/bitacora",
+    label: "Bitácora",
+    icon: ScrollText,
+    roles: ["administrador", "tecnico"],
+  },
 ];
 
 const roleLabel = {
@@ -55,8 +88,6 @@ export default function DashboardLayout() {
 
   const { theme, toggle } = useTheme();
   const { user, logout, can } = useAuth();
-
-  console.log("USER EN DASHBOARD:", user);
 
   const location = useLocation();
   const navigate = useNavigate();
