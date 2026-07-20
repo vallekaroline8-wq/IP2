@@ -3,7 +3,8 @@ from fastapi import APIRouter
 from procedures.asignaciones import (
     obtener_asignaciones,
     obtener_equipos,
-    obtener_segmentos
+    obtener_segmentos,
+    liberar_asignacion
 )
 
 router = APIRouter(
@@ -49,3 +50,12 @@ def listar_equipos():
 )
 def listar_segmentos():
     return obtener_segmentos()
+
+# ==========================================
+# LIBERAR ASIGNACIÓN
+# ==========================================
+
+@router.post("/{id_asignacion}/liberar")
+def liberar(id_asignacion: int):
+    return liberar_asignacion(id_asignacion)
+

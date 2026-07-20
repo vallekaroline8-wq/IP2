@@ -91,6 +91,98 @@ def obtener_asignaciones(page: int = 1):
 
 
 # ==========================================
+# LIBERAR ASIGNACIÓN DE IP
+# ==========================================
+
+def liberar_asignacion(id_asignacion: int):
+    """
+    Libera una dirección IP asignada.
+    Cambia el estado de la asignación a LIBERADA
+    y el estado de la IP a DISPONIBLE.
+    """
+
+    conexion = get_connection()
+
+    try:
+
+        cursor = conexion.cursor(dictionary=True)
+
+        # ======================================
+        # Verificar que exista la asignación
+        # ======================================
+
+        cursor.execute("""
+            SELECT
+                id_asignacion,
+                id_ip,
+                estado_asignacion
+            FROM tbl_asignacion_ip
+            WHERE id_asignacion = %s
+        """, (id_asignacion,))
+
+        asignacion = cursor.fetchone()
+
+        if not asignacion:
+            raise HTTPException(
+                status_code=404,
+                detail="La asignación no existe."
+            )
+
+        # ======================================
+        # Verificar si ya fue liberada
+        # ======================================
+
+        if asignacion["estado_asignacion"] == "LIBERADA":
+            raise HTTPException(
+                status_code=400,
+                detail="La dirección IP ya fue liberada."
+            )
+
+        # ======================================
+        # Actualizar asignación
+        # ======================================
+
+        cursor.execute("""
+            UPDATE tbl_asignacion_ip
+            SET
+                estado_asignacion = 'LIBERADA',
+                fecha_liberacion = NOW()
+            WHERE id_asignacion = %s
+        """, (id_asignacion,))
+
+        # ======================================
+        # Cambiar la IP a DISPONIBLE
+        # id_estado = 3
+        # ======================================
+
+        cursor.execute("""
+            UPDATE tbl_ip
+            SET id_estado = 3
+            WHERE id_ip = %s
+        """, (asignacion["id_ip"],))
+
+        conexion.commit()
+
+        return {
+            "mensaje": "Dirección IP liberada correctamente."
+        }
+
+    except Error as e:
+
+        conexion.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al liberar la dirección IP: {str(e)}"
+        )
+
+    finally:
+
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+# ==========================================
 # COMBO EQUIPOS
 # ==========================================
 
