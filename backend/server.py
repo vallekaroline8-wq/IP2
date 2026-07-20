@@ -10,6 +10,7 @@ from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
 from routes.departamentos import router as departamentos_router
 from routes.segmentos import router as segmentos_router
+from routes.asignaciones import router as asignaciones_router
 from routes.usuariosmodulo import router as usuarios_router
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(departamentos_router)
 app.include_router(segmentos_router)
+app.include_router(asignaciones_router)
 app.include_router(usuarios_router)
 
 
