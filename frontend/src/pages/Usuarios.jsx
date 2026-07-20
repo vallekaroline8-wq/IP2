@@ -355,7 +355,12 @@ export default function Usuarios() {
       </TableWrap>
 
       {/* Paginación */}
-      <Pagination L={L} />
+      <Pagination
+        page={L.page}
+        pages={L.pages}
+        total={L.total}
+        onChange={L.setPage}
+      />
 
       {/* Modal: Crear / Editar Usuario */}
       <Dialog open={open} onOpenChange={setOpen}>
