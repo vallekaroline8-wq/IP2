@@ -4,7 +4,7 @@ from mysql.connector import Error
 from database.conexion import get_connection
 
 
-def obtener_segmentos(all: bool = False):
+def obtener_segmentos(all: bool = False, search: str = ""):
     """Obtiene los segmentos desde tbl_segmento."""
 
     conexion = get_connection()
@@ -22,12 +22,22 @@ def obtener_segmentos(all: bool = False):
             FROM tbl_segmento
         """
 
+        conditions = []
+        params = []
+
         if not all:
-            consulta_sql += "\n            WHERE id_estado = 1"
+            conditions.append("id_estado = 1")
+
+        if search.strip():
+            conditions.append("nombre LIKE %s")
+            params.append(f"%{search.strip()}%")
+
+        if conditions:
+            consulta_sql += "\n            WHERE " + " AND ".join(conditions)
 
         consulta_sql += "\n            ORDER BY nombre ASC"
 
-        cursor.execute(consulta_sql)
+        cursor.execute(consulta_sql, tuple(params))
         return cursor.fetchall()
 
     except Error as e:

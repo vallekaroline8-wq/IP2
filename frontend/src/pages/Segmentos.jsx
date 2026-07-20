@@ -104,9 +104,6 @@ export default function Segmentos() {
                       {can("administrador", "tecnico") && s.total_ips === 0 && (
                         <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar 254 IP" data-testid={`gen-${s.id_segmento}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
                       )}
-                      {can("administrador") && (
-                        <Button variant="ghost" size="icon" onClick={() => openAuth(s)} title="Departamentos autorizados" data-testid={`auth-${s.id_segmento}`}><ShieldCheck className="w-4 h-4 text-primary" /></Button>
-                      )}
                       {can("administrador", "tecnico") && <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>}
                       {can("administrador") && <Button variant="ghost" size="icon" onClick={() => del(s)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
                     </Td>
