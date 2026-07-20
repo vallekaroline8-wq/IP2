@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
 from routes.departamentos import router as departamentos_router
-from routes.secciones import router as secciones_router
 from routes.usuariosmodulo import router as usuarios_router
 from routes.equipo_routes import router as equipo_router
 
@@ -29,7 +28,6 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(departamentos_router)
-app.include_router(secciones_router)
 app.include_router(usuarios_router)
 app.include_router(equipo_router)
 
