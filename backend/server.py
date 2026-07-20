@@ -9,8 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
 from routes.departamentos import router as departamentos_router
-from routes.usuariosmodulo import router as usuarios_router
+from routes.segmentos import router as segmentos_router
 from routes.asignaciones import router as asignaciones_router
+from routes.usuariosmodulo import router as usuarios_router
+from routes.ips import router as ips_router
 
 app = FastAPI(
     title="SIGIP API",
@@ -28,19 +30,10 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(departamentos_router)
-app.include_router(usuarios_router)
+app.include_router(segmentos_router)
 app.include_router(asignaciones_router)
-
-# ==========================================
-# MOSTRAR RUTAS REGISTRADAS
-# ==========================================
-
-print("\n========== RUTAS REGISTRADAS ==========\n")
-
-for ruta in app.routes:
-    print(f"{ruta.methods} -> {ruta.path}")
-
-print("\n=======================================\n")
+app.include_router(usuarios_router)
+app.include_router(ips_router)
 
 
 @app.get("/")
@@ -48,18 +41,3 @@ def inicio():
     return {
         "mensaje": "SIGIP Backend MySQL funcionando"
     }
-
-
-# ==========================================
-# DEBUG DE RUTAS
-# ==========================================
-
-@app.get("/debug-rutas")
-def debug_rutas():
-    return [
-        {
-            "path": ruta.path,
-            "methods": list(ruta.methods)
-        }
-        for ruta in app.routes
-    ]
