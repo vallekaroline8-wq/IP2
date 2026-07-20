@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from models.usuario_model import (
     UsuarioCreate,
@@ -27,8 +27,8 @@ router = APIRouter(
     summary="Listar Usuarios",
     description="Obtiene únicamente los usuarios activos."
 )
-def listar_usuarios():
-    return obtener_usuarios()
+def listar_usuarios(search: str = Query(default="")):
+    return obtener_usuarios(search)
 
 
 @router.post(
