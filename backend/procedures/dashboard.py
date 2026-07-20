@@ -19,13 +19,6 @@ def obtener_dashboard():
 
     cursor.execute("""
         SELECT COUNT(*) total
-        FROM tbl_seccion
-        WHERE id_estado = 1
-    """)
-    secciones = cursor.fetchone()["total"]
-
-    cursor.execute("""
-        SELECT COUNT(*) total
         FROM tbl_segmento
         WHERE id_estado = 1
     """)
@@ -115,7 +108,7 @@ def obtener_dashboard():
         pass
 
     # ==========================
-    # GRAFICO PIE (ESTADO IPS)
+    # GRAFICO PIE (ESTADOS IP)
     # ==========================
 
     cursor.execute("""
@@ -132,23 +125,23 @@ def obtener_dashboard():
     pie = cursor.fetchall()
 
     # ==========================
-    # EQUIPOS POR SECCION
+    # EQUIPOS POR DEPARTAMENTO
     # ==========================
 
     cursor.execute("""
         SELECT
-            s.nombre,
+            d.nombre,
             COUNT(eq.id_equipo) cantidad
-        FROM tbl_seccion s
+        FROM tbl_departamento d
         LEFT JOIN tbl_equipo eq
-            ON eq.id_seccion = s.id_seccion
+            ON eq.id_departamento = d.id_departamento
             AND eq.id_estado = 1
-        WHERE s.id_estado = 1
-        GROUP BY s.id_seccion, s.nombre
-        ORDER BY s.nombre
+        WHERE d.id_estado = 1
+        GROUP BY d.id_departamento, d.nombre
+        ORDER BY d.nombre
     """)
 
-    por_segmento = cursor.fetchall()
+    por_departamento = cursor.fetchall()
 
     # ==========================
     # ULTIMAS ASIGNACIONES
@@ -170,7 +163,6 @@ def obtener_dashboard():
         "cards": {
 
             "departamentos": departamentos,
-            "secciones": secciones,
             "segmentos": segmentos,
             "equipos": equipos,
             "ips": ips,
@@ -189,7 +181,7 @@ def obtener_dashboard():
 
         "pie": pie,
 
-        "por_segmento": por_segmento,
+        "por_departamento": por_departamento,
 
         "ultimas_asignaciones": ultimas_asignaciones,
 
