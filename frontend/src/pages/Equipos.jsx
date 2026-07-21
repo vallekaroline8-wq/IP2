@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
 
 import api from "@/services/api";
 import { useList, useOptions } from "@/hooks/useList";
@@ -129,7 +134,38 @@ export default function Equipos() {
       setSaving(false);
     }
   };
+const exportarExcel = async () => {
+  try {
+    const response = await api.get(
+      "/equipos/export/excel",
+      {
+        responseType: "blob",
+      }
+    );
 
+    const url = window.URL.createObjectURL(
+      new Blob([response.data])
+    );
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "equipos.xlsx";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(url);
+
+    ok("Archivo Excel descargado.");
+
+  } catch (e) {
+    fail(e);
+  }
+};
   const del = async (equipo) => {
     const confirmar = await confirmDelete(
       `Se eliminará el equipo "${equipo.nombre_equipo}".`
@@ -157,7 +193,8 @@ export default function Equipos() {
       />
 
       <TableWrap>
-        <Toolbar
+
+  <Toolbar
           search={L.search}
           setSearch={L.setSearch}
           onAdd={openNew}
