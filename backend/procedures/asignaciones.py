@@ -9,7 +9,7 @@ from mysql.connector import Error
 
 def obtener_asignaciones(page: int = 1):
     """
-    Obtiene el listado paginado de asignaciones.
+    Obtiene únicamente las direcciones IP que se encuentran asignadas.
     """
 
     if page < 1:
@@ -31,10 +31,11 @@ def obtener_asignaciones(page: int = 1):
                 e.nombre_equipo AS equipo_nombre,
                 ai.fecha_asignacion,
                 ai.fecha_liberacion,
-                ai.estado_asignacion,
+                ai.id_estado,
+                est.nombre AS estado,
 
                 CASE
-                    WHEN ai.estado_asignacion = 'ACTIVA' THEN TRUE
+                    WHEN ai.id_estado = 4 THEN TRUE
                     ELSE FALSE
                 END AS activo
 
@@ -45,6 +46,11 @@ def obtener_asignaciones(page: int = 1):
 
             INNER JOIN tbl_equipo e
                 ON ai.id_equipo = e.id_equipo
+
+            INNER JOIN tbl_estado est
+                ON ai.id_estado = est.id_estado
+
+            WHERE ai.id_estado = 4
 
             ORDER BY ai.id_asignacion DESC
 
@@ -64,6 +70,7 @@ def obtener_asignaciones(page: int = 1):
         cursor.execute("""
             SELECT COUNT(*) AS total
             FROM tbl_asignacion_ip
+            WHERE id_estado = 4
         """)
 
         total = cursor.fetchone()["total"]
@@ -89,7 +96,6 @@ def obtener_asignaciones(page: int = 1):
             cursor.close()
             conexion.close()
 
-
 # ==========================================
 # LIBERAR ASIGNACIÓN DE IP
 # ==========================================
@@ -97,8 +103,6 @@ def obtener_asignaciones(page: int = 1):
 def liberar_asignacion(id_asignacion: int):
     """
     Libera una dirección IP asignada.
-    Cambia el estado de la asignación a LIBERADA
-    y el estado de la IP a DISPONIBLE.
     """
 
     conexion = get_connection()
@@ -107,15 +111,11 @@ def liberar_asignacion(id_asignacion: int):
 
         cursor = conexion.cursor(dictionary=True)
 
-        # ======================================
-        # Verificar que exista la asignación
-        # ======================================
-
+        # Buscar asignación
         cursor.execute("""
             SELECT
-                id_asignacion,
                 id_ip,
-                estado_asignacion
+                id_estado
             FROM tbl_asignacion_ip
             WHERE id_asignacion = %s
         """, (id_asignacion,))
@@ -128,33 +128,23 @@ def liberar_asignacion(id_asignacion: int):
                 detail="La asignación no existe."
             )
 
-        # ======================================
-        # Verificar si ya fue liberada
-        # ======================================
-
-        if asignacion["estado_asignacion"] == "LIBERADA":
+        # Verificar si ya está liberada
+        if asignacion["id_estado"] == 3:
             raise HTTPException(
                 status_code=400,
-                detail="La dirección IP ya fue liberada."
+                detail="La asignación ya fue liberada."
             )
 
-        # ======================================
         # Actualizar asignación
-        # ======================================
-
         cursor.execute("""
             UPDATE tbl_asignacion_ip
             SET
-                estado_asignacion = 'LIBERADA',
+                id_estado = 3,
                 fecha_liberacion = NOW()
             WHERE id_asignacion = %s
         """, (id_asignacion,))
 
-        # ======================================
-        # Cambiar la IP a DISPONIBLE
-        # id_estado = 3
-        # ======================================
-
+        # Actualizar IP
         cursor.execute("""
             UPDATE tbl_ip
             SET id_estado = 3
@@ -246,3 +236,305 @@ def obtener_segmentos():
     finally:
         cursor.close()
         conexion.close()
+
+# ==========================================
+# IPS DISPONIBLES
+# ==========================================
+
+def obtener_ips_disponibles(id_segmento):
+    """
+    Obtiene las IP disponibles de un segmento.
+    """
+
+    conexion = get_connection()
+
+    try:
+
+        cursor = conexion.cursor(dictionary=True)
+
+        print("ID SEGMENTO RECIBIDO:", id_segmento)
+
+        cursor.execute("""
+            SELECT
+                id_ip AS id,
+                direccion_ip AS direccion
+            FROM tbl_ip
+            WHERE id_segmento = %s
+              AND id_estado = 3
+            ORDER BY direccion_ip
+        """, (id_segmento,))
+
+        return cursor.fetchall()
+
+    except Error as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener las IP disponibles: {str(e)}"
+        )
+
+    finally:
+
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+# ==========================================
+# ASIGNAR DIRECCIÓN IP
+# ==========================================
+
+def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int):
+    """
+    Asigna una dirección IP a un equipo.
+    """
+
+    conexion = get_connection()
+
+    try:
+
+        cursor = conexion.cursor(dictionary=True)
+
+        # ======================================
+        # Verificar que la IP exista
+        # ======================================
+
+        cursor.execute("""
+            SELECT
+                id_ip,
+                id_estado
+            FROM tbl_ip
+            WHERE id_ip = %s
+        """, (id_ip,))
+
+        ip = cursor.fetchone()
+
+        if not ip:
+            raise HTTPException(
+                status_code=404,
+                detail="La dirección IP no existe."
+            )
+
+        # Debe estar DISPONIBLE
+        if ip["id_estado"] != 3:
+            raise HTTPException(
+                status_code=400,
+                detail="La dirección IP no está disponible."
+            )
+
+        # ======================================
+        # Verificar equipo
+        # ======================================
+
+        cursor.execute("""
+            SELECT id_equipo
+            FROM tbl_equipo
+            WHERE id_equipo = %s
+        """, (id_equipo,))
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="El equipo no existe."
+            )
+
+        # ======================================
+        # Verificar usuario
+        # ======================================
+
+        cursor.execute("""
+            SELECT id_usuario
+            FROM tbl_usuario
+            WHERE id_usuario = %s
+        """, (id_usuario,))
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="El usuario no existe."
+            )
+
+        # ======================================
+        # Registrar asignación
+        # ======================================
+
+        cursor.execute("""
+            INSERT INTO tbl_asignacion_ip
+            (
+                id_ip,
+                id_equipo,
+                id_usuario,
+                fecha_asignacion,
+                id_estado
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                NOW(),
+                %s
+            )
+        """, (
+            id_ip,
+            id_equipo,
+            id_usuario,
+            4
+        ))
+
+        # ======================================
+        # Cambiar estado de la IP
+        # ======================================
+
+        cursor.execute("""
+            UPDATE tbl_ip
+            SET id_estado = 4
+            WHERE id_ip = %s
+        """, (id_ip,))
+
+        conexion.commit()
+
+        return {
+            "mensaje": "Dirección IP asignada correctamente."
+        }
+
+    except Error as e:
+
+        conexion.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al asignar la dirección IP: {str(e)}"
+        )
+
+    finally:
+
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+    """
+    Asigna una dirección IP a un equipo.
+    """
+
+    conexion = get_connection()
+
+    try:
+
+        cursor = conexion.cursor(dictionary=True)
+
+        # ======================================
+        # Verificar que la IP exista
+        # ======================================
+
+        cursor.execute("""
+            SELECT
+                id_ip,
+                id_estado
+            FROM tbl_ip
+            WHERE id_ip = %s
+        """, (id_ip,))
+
+        ip = cursor.fetchone()
+
+        if not ip:
+            raise HTTPException(
+                status_code=404,
+                detail="La dirección IP no existe."
+            )
+
+        # id_estado = 3 -> DISPONIBLE
+        if ip["id_estado"] != 3:
+            raise HTTPException(
+                status_code=400,
+                detail="La dirección IP no está disponible."
+            )
+
+        # ======================================
+        # Verificar que exista el equipo
+        # ======================================
+
+        cursor.execute("""
+            SELECT id_equipo
+            FROM tbl_equipo
+            WHERE id_equipo = %s
+        """, (id_equipo,))
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="El equipo no existe."
+            )
+
+        # ======================================
+        # Verificar que exista el usuario
+        # ======================================
+
+        cursor.execute("""
+            SELECT id_usuario
+            FROM tbl_usuario
+            WHERE id_usuario = %s
+        """, (id_usuario,))
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="El usuario no existe."
+            )
+
+        # ======================================
+        # Registrar asignación
+        # ======================================
+
+        cursor.execute("""
+            INSERT INTO tbl_asignacion_ip
+            (
+                id_ip,
+                id_equipo,
+                id_usuario,
+                fecha_asignacion,
+                estado_asignacion
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                NOW(),
+                'ACTIVA'
+            )
+        """, (
+            id_ip,
+            id_equipo,
+            id_usuario
+        ))
+
+        # ======================================
+        # Cambiar estado de la IP
+        # id_estado = 4 -> ASIGNADA
+        # ======================================
+
+        cursor.execute("""
+            UPDATE tbl_ip
+            SET id_estado = 4
+            WHERE id_ip = %s
+        """, (id_ip,))
+
+        conexion.commit()
+
+        return {
+            "mensaje": "Dirección IP asignada correctamente."
+        }
+
+    except Error as e:
+
+        conexion.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al asignar la dirección IP: {str(e)}"
+        )
+
+    finally:
+
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()

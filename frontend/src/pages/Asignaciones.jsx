@@ -18,7 +18,7 @@ import { confirmAction, ok, fail } from "@/utils/ui";
 export default function Asignaciones() {
   const { can } = useAuth();
   const equipos = useOptions("asignaciones/equipos");
- const segs = useOptions("asignaciones/segmentos");
+  const segs = useOptions("asignaciones/segmentos");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -43,9 +43,25 @@ export default function Asignaciones() {
   useEffect(() => { fetch(); }, [fetch]);
 
   useEffect(() => {
-    if (!form.segmento_id) { setAvailIps([]); return; }
-    api.get("/ips", { params: { segmento_id: form.segmento_id, estado: "disponible", limit: 300 } })
-      .then((r) => setAvailIps(r.data.items)).catch(() => setAvailIps([]));
+    if (!form.segmento_id) {
+      setAvailIps([]);
+      return;
+    }
+
+    api.get("/asignaciones/ips", {
+      params: {
+        id_segmento: Number(form.segmento_id)
+      }
+    })
+      .then((response) => {
+        console.log("IPS disponibles:", response.data);
+        setAvailIps(response.data);
+      })
+      .catch((error) => {
+        console.error(error);
+        setAvailIps([]);
+      });
+
   }, [form.segmento_id]);
 
   const openNew = (reasig = false) => { setReasignar(reasig); setForm({ equipo_id: "", segmento_id: "", ip_id: "" }); setOpen(true); };
@@ -54,8 +70,8 @@ export default function Asignaciones() {
     if (!form.equipo_id || !form.ip_id) return fail({ response: { data: { detail: "Seleccione equipo e IP" } } });
     setSaving(true);
     try {
-      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones";
-      await api.post(url, { equipo_id: form.equipo_id, ip_id: form.ip_id });
+      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones/";
+      await api.post(url, { id_ip: Number(form.ip_id), id_equipo: Number(form.equipo_id), id_usuario: 1 });
       ok(reasignar ? "IP reasignada correctamente" : "IP asignada correctamente");
       setOpen(false); fetch();
     } catch (e) { fail(e); } finally { setSaving(false); }
@@ -157,16 +173,16 @@ export default function Asignaciones() {
             </div>
             <div>
               <Label>Segmento</Label>
-              <Select value={form.segmento_id} onValueChange={(v) => setForm({ ...form, segmento_id: v, ip_id: "" })}>
+              <Select value={String(form.segmento_id)} onValueChange={(v) => { console.log("ID seleccionado:", v); setForm({ ...form, segmento_id: Number(v), ip_id: "" }); }}>
                 <SelectTrigger className="mt-1.5" data-testid="assign-segmento"><SelectValue placeholder="Seleccione segmento" /></SelectTrigger>
-                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}</SelectContent>
+                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.nombre}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>Dirección IP disponible</Label>
-              <Select value={form.ip_id} onValueChange={(v) => setForm({ ...form, ip_id: v })} disabled={!form.segmento_id}>
+              <Select value={String(form.ip_id)} onValueChange={(v) => setForm({ ...form, ip_id: Number(v) })} disabled={!form.segmento_id}>
                 <SelectTrigger className="mt-1.5 font-mono-ip" data-testid="assign-ip"><SelectValue placeholder={form.segmento_id ? "Seleccione IP" : "Elija un segmento primero"} /></SelectTrigger>
-                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={ip.id} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={String(ip.id)} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
               </Select>
               {form.segmento_id && availIps.length === 0 && <p className="text-xs text-amber-600 mt-1">No hay IP disponibles en este segmento</p>}
             </div>

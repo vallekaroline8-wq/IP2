@@ -1,8 +1,11 @@
 from fastapi import APIRouter
 
+from models.asignacion_model import AsignacionCreate
 from procedures.asignaciones import (
+    asignar_ip,
     obtener_asignaciones,
     obtener_equipos,
+    obtener_ips_disponibles,
     obtener_segmentos,
     liberar_asignacion
 )
@@ -59,3 +62,22 @@ def listar_segmentos():
 def liberar(id_asignacion: int):
     return liberar_asignacion(id_asignacion)
 
+# ==========================================
+# COMBO IPS DISPONIBLES
+# ==========================================
+
+@router.get("/ips")
+def listar_ips_disponibles(id_segmento: int):
+    return obtener_ips_disponibles(id_segmento)
+
+# ==========================================
+# ASIGNAR DIRECCIÓN IP
+# ==========================================
+
+@router.post("/")
+def crear_asignacion(data: AsignacionCreate):
+    return asignar_ip(
+        data.id_ip,
+        data.id_equipo,
+        data.id_usuario
+    )
