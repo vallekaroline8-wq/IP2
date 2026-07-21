@@ -85,7 +85,7 @@ def obtener_ips(page: int = 1, limit: int = 20, search: str = "", segmento_id: i
                     FROM tbl_asignacion_ip asig
                     LEFT JOIN tbl_equipo eq ON eq.id_equipo = asig.id_equipo
                     WHERE asig.id_ip = ip.id_ip
-                      AND asig.estado_asignacion = 'ACTIVA'
+                      AND asig.fecha_liberacion IS NULL
                     ORDER BY asig.fecha_asignacion DESC
                     LIMIT 1
                 ) AS equipo_nombre
@@ -212,8 +212,7 @@ def obtener_historial_ip(id_ip: int):
                 a.id_asignacion AS id,
                 a.fecha_asignacion,
                 a.fecha_liberacion,
-                a.estado_asignacion,
-                a.estado_asignacion = 'ACTIVA' AS activo,
+                (a.fecha_liberacion IS NULL) AS activo,
                 eq.nombre_equipo AS equipo_nombre
             FROM tbl_asignacion_ip a
             LEFT JOIN tbl_equipo eq ON eq.id_equipo = a.id_equipo
@@ -232,3 +231,4 @@ def obtener_historial_ip(id_ip: int):
         if conexion and conexion.is_connected() and cursor is not None:
             cursor.close()
             conexion.close()
+
