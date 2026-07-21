@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Depends
+from dependencies.auth_dependency import obtener_usuario_actual
 
 from models.usuario_model import (
     UsuarioCreate,
@@ -27,8 +28,8 @@ router = APIRouter(
     summary="Listar Usuarios",
     description="Obtiene únicamente los usuarios activos."
 )
-def listar_usuarios():
-    return obtener_usuarios()
+def listar_usuarios(search: str = Query(default="")):
+    return obtener_usuarios(search)
 
 
 @router.post(
@@ -36,13 +37,14 @@ def listar_usuarios():
     summary="Nuevo Usuario",
     description="Crea un nuevo usuario."
 )
-def nuevo_usuario(datos: UsuarioCreate):
+def nuevo_usuario(datos: UsuarioCreate, usuario_actual=Depends(obtener_usuario_actual)):
     return crear_usuario(
         datos.nombre,
         datos.usuario,
         datos.contrasena,
         datos.rol,
-        datos.id_estado
+        datos.id_estado,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -53,14 +55,16 @@ def nuevo_usuario(datos: UsuarioCreate):
 )
 def editar_usuario(
     id_usuario: int,
-    datos: UsuarioUpdate
+    datos: UsuarioUpdate,
+    usuario_actual=Depends(obtener_usuario_actual)
 ):
     return actualizar_usuario(
         id_usuario,
         datos.nombre,
         datos.usuario,
         datos.rol,
-        datos.id_estado
+        datos.id_estado,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -71,11 +75,13 @@ def editar_usuario(
 )
 def actualizar_password(
     id_usuario: int,
-    datos: PasswordUpdate
+    datos: PasswordUpdate,
+    usuario_actual=Depends(obtener_usuario_actual)
 ):
     return cambiar_password(
         id_usuario,
-        datos.contrasena
+        datos.contrasena,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -86,11 +92,13 @@ def actualizar_password(
 )
 def actualizar_estado(
     id_usuario: int,
-    datos: UsuarioEstado
+    datos: UsuarioEstado,
+    usuario_actual=Depends(obtener_usuario_actual)
 ):
     return cambiar_estado_usuario(
         id_usuario,
-        datos.id_estado
+        datos.id_estado,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -99,5 +107,6 @@ def actualizar_estado(
     summary="Desactivar Usuario",
     description="Realiza una eliminación lógica cambiando el estado del usuario a INACTIVO."
 )
-def borrar_usuario(id_usuario: int):
-    return eliminar_usuario(id_usuario)
+def borrar_usuario(id_usuario: int
+                   , usuario_actual=Depends(obtener_usuario_actual)):
+    return eliminar_usuario(id_usuario, usuario_actual["id_usuario"])
