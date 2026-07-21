@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Trash2, Loader2, Zap, ShieldCheck } from "lucide-react";
+import { Pencil, Trash2, Loader2, Zap, RotateCcw, ShieldCheck } from "lucide-react";
 import api from "@/services/api";
 import { useList, useOptions } from "@/hooks/useList";
 import { useAuth } from "@/context/AuthContext";
@@ -25,14 +25,16 @@ export default function Segmentos() {
   const [authSeg, setAuthSeg] = useState(null);
   const [authDeps, setAuthDeps] = useState([]);
 
+  const getSegmentoId = (s) => s.id_segmento ?? s.id;
+
   const openNew = () => { setEditing(null); setForm({ nombre: "", direccion_red: "", mascara: "255.255.255.0", gateway: "" }); setOpen(true); };
-  const openEdit = (s) => { setEditing(s); setForm({ nombre: s.nombre, direccion_red: s.direccion_red, mascara: s.mascara, gateway: s.gateway || "" }); setOpen(true); };
+  const openEdit = (s) => { setEditing({ ...s, id_segmento: getSegmentoId(s) }); setForm({ nombre: s.nombre, direccion_red: s.direccion_red, mascara: s.mascara, gateway: s.gateway || "" }); setOpen(true); };
 
   const save = async () => {
     if (!form.nombre.trim() || !form.direccion_red.trim()) return fail({ response: { data: { detail: "Nombre y dirección de red son obligatorios" } } });
     setSaving(true);
     try {
-      if (editing) await api.put(`/segmentos/${editing.id}`, form);
+      if (editing) await api.put(`/segmentos/${getSegmentoId(editing)}`, form);
       else await api.post("/segmentos", form);
       ok(editing ? "Segmento actualizado" : "Segmento creado");
       setOpen(false); L.refetch();
@@ -41,21 +43,27 @@ export default function Segmentos() {
 
   const del = async (s) => {
     if (!(await confirmDelete(`Se eliminará el segmento "${s.nombre}" y sus IP`))) return;
-    try { await api.delete(`/segmentos/${s.id}`); ok("Segmento eliminado"); L.refetch(); } catch (e) { fail(e); }
+    try { await api.delete(`/segmentos/${getSegmentoId(s)}`); ok("Segmento eliminado"); L.refetch(); } catch (e) { fail(e); }
   };
 
   const generar = async (s) => {
-    if (!(await confirmAction("Generar 254 IP", `Se generarán las 254 direcciones IP del segmento "${s.nombre}"`, "Generar"))) return;
-    try { const { data } = await api.post(`/segmentos/${s.id}/generar-ips`); ok(data.message); L.refetch(); } catch (e) { fail(e); }
+    if (!(await confirmAction("Generar IPs Disponibles", `Se generarán las 254 direcciones IP disponibles para el segmento "${s.nombre}"`, "Generar"))) return;
+    try { const { data } = await api.post(`/segmentos/${getSegmentoId(s)}/generar-ips`); ok(data.mensaje || data.message || "IPs generadas correctamente"); L.refetch(); } catch (e) { fail(e); }
+  };
+
+  const limpiar = async (s) => {
+    if (!(await confirmAction("Limpiar IPs del Segmento", `Se eliminarán las direcciones IP no asignadas del segmento "${s.nombre}"`, "Limpiar"))) return;
+    try { const { data } = await api.delete(`/segmentos/${getSegmentoId(s)}/limpiar-ips`); ok(data.mensaje || "IPs del segmento limpiadas"); L.refetch(); } catch (e) { fail(e); }
   };
 
   const openAuth = async (s) => {
-    setAuthSeg(s);
+    const segmentoId = getSegmentoId(s);
+    setAuthSeg({ ...s, id_segmento: segmentoId });
     // cargar autorizaciones por cada departamento (comprobamos cuáles incluyen este segmento)
     const marked = [];
     for (const d of deps) {
       const { data } = await api.get(`/departamento-segmento/${d.id}`);
-      if (data.segmento_ids.includes(s.id)) marked.push(d.id);
+      if (data.segmento_ids.includes(segmentoId)) marked.push(d.id);
     }
     setAuthDeps(marked);
     setAuthOpen(true);
@@ -88,21 +96,21 @@ export default function Segmentos() {
               <thead className="bg-muted/40"><tr><Th>Nombre</Th><Th>Dirección de Red</Th><Th>Gateway</Th><Th>Ocupación</Th><Th className="text-right">Acciones</Th></tr></thead>
               <tbody className="divide-y divide-border">
                 {L.items.length === 0 ? <EmptyRow cols={5} /> : L.items.map((s) => (
-                  <tr key={s.id} className="hover:bg-accent/40 transition-colors">
+                  <tr key={s.id_segmento} className="hover:bg-accent/40 transition-colors">
                     <Td className="font-medium">{s.nombre}</Td>
                     <Td className="font-mono-ip">{s.direccion_red}/24</Td>
                     <Td className="font-mono-ip text-muted-foreground">{s.gateway || "-"}</Td>
                     <Td>
                       {s.total_ips > 0 ? (
                         <span className="text-xs"><span className="text-red-600 font-medium">{s.ocupadas}</span> / <span className="text-emerald-600 font-medium">{s.disponibles}</span> disp. ({s.total_ips})</span>
-                      ) : <span className="text-xs text-amber-600">Sin IP generadas</span>}
+                      ) : <span className="text-xs text-amber-600 font-medium">Sin IP generadas</span>}
                     </Td>
                     <Td className="text-right whitespace-nowrap">
-                      {can("administrador", "tecnico") && s.total_ips === 0 && (
-                        <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar 254 IP" data-testid={`gen-${s.id}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
+                      {can("administrador", "tecnico") && (
+                        <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar IPs Disponibles" data-testid={`gen-${s.id_segmento}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
                       )}
-                      {can("administrador") && (
-                        <Button variant="ghost" size="icon" onClick={() => openAuth(s)} title="Departamentos autorizados" data-testid={`auth-${s.id}`}><ShieldCheck className="w-4 h-4 text-primary" /></Button>
+                      {can("administrador", "tecnico") && s.total_ips > 0 && (
+                        <Button variant="ghost" size="icon" onClick={() => limpiar(s)} title="Limpiar IPs del Segmento" data-testid={`clean-${s.id_segmento}`}><RotateCcw className="w-4 h-4 text-orange-600" /></Button>
                       )}
                       {can("administrador", "tecnico") && <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>}
                       {can("administrador") && <Button variant="ghost" size="icon" onClick={() => del(s)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}

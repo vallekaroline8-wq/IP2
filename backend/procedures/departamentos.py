@@ -6,7 +6,7 @@ from database.conexion import get_connection
 
 def obtener_departamentos():
     """
-    Obtiene todos los departamentos ordenados alfabéticamente.
+    Obtiene únicamente los departamentos activos.
     """
 
     conexion = get_connection()
@@ -19,6 +19,7 @@ def obtener_departamentos():
                 id_departamento,
                 nombre
             FROM tbl_departamento
+            WHERE id_estado = 1
             ORDER BY nombre ASC
         """
 
@@ -57,11 +58,12 @@ def crear_departamento(nombre):
 
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar si ya existe
+        # Verificar si ya existe un departamento ACTIVO con ese nombre
         consulta_sql = """
             SELECT id_departamento
             FROM tbl_departamento
             WHERE nombre = %s
+            AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (nombre,))
@@ -75,8 +77,16 @@ def crear_departamento(nombre):
         cursor = conexion.cursor()
 
         consulta_sql = """
-            INSERT INTO tbl_departamento(nombre)
-            VALUES(%s)
+            INSERT INTO tbl_departamento
+            (
+                nombre,
+                id_estado
+            )
+            VALUES
+            (
+                %s,
+                1
+            )
         """
 
         cursor.execute(consulta_sql, (nombre,))
@@ -91,6 +101,7 @@ def crear_departamento(nombre):
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
@@ -123,11 +134,12 @@ def actualizar_departamento(id_departamento, nombre):
 
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar que exista
+        # Verificar que exista y esté activo
         consulta_sql = """
             SELECT id_departamento
             FROM tbl_departamento
             WHERE id_departamento = %s
+            AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (id_departamento,))
@@ -144,6 +156,7 @@ def actualizar_departamento(id_departamento, nombre):
             FROM tbl_departamento
             WHERE nombre = %s
             AND id_departamento <> %s
+            AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (nombre, id_departamento))
@@ -162,7 +175,14 @@ def actualizar_departamento(id_departamento, nombre):
             WHERE id_departamento = %s
         """
 
-        cursor.execute(consulta_sql, (nombre, id_departamento))
+        cursor.execute(
+            consulta_sql,
+            (
+                nombre,
+                id_departamento
+            )
+        )
+
         conexion.commit()
 
         return {
@@ -173,6 +193,7 @@ def actualizar_departamento(id_departamento, nombre):
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
@@ -188,7 +209,7 @@ def actualizar_departamento(id_departamento, nombre):
 
 def eliminar_departamento(id_departamento):
     """
-    Elimina un departamento.
+    Desactiva un departamento (eliminación lógica).
     """
 
     conexion = get_connection()
@@ -197,11 +218,12 @@ def eliminar_departamento(id_departamento):
 
         cursor = conexion.cursor(dictionary=True)
 
-        # Verificar que exista
+        # Verificar que exista y esté activo
         consulta_sql = """
             SELECT id_departamento
             FROM tbl_departamento
             WHERE id_departamento = %s
+            AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (id_departamento,))
@@ -215,7 +237,8 @@ def eliminar_departamento(id_departamento):
         cursor = conexion.cursor()
 
         consulta_sql = """
-            DELETE FROM tbl_departamento
+            UPDATE tbl_departamento
+            SET id_estado = 2
             WHERE id_departamento = %s
         """
 
@@ -223,18 +246,19 @@ def eliminar_departamento(id_departamento):
         conexion.commit()
 
         return {
-            "mensaje": "Departamento eliminado correctamente."
+            "mensaje": "Departamento desactivado correctamente."
         }
 
     except HTTPException:
         raise
 
     except Error as e:
+
         conexion.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Error al eliminar departamento: {str(e)}"
+            detail=f"Error al desactivar departamento: {str(e)}"
         )
 
     finally:

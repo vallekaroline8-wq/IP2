@@ -3,7 +3,6 @@ import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
-  Layers,
   Network,
   Router,
   Monitor,
@@ -14,8 +13,6 @@ import {
   Moon,
   Sun,
   LogOut,
-  ChevronRight,
-  Shield,
 } from "lucide-react";
 
 import { useTheme } from "@/context/ThemeContext";
@@ -33,15 +30,50 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/departamentos", label: "Departamentos", icon: Building2 },
-  { to: "/secciones", label: "Secciones", icon: Layers },
-  { to: "/segmentos", label: "Segmentos", icon: Network },
-  { to: "/ips", label: "Direcciones IP", icon: Router },
-  { to: "/equipos", label: "Equipos", icon: Monitor },
-  { to: "/asignaciones", label: "Asignaciones", icon: Link2 },
-  { to: "/usuarios", label: "Usuarios", icon: Users, roles: ["administrador"] },
-  { to: "/bitacora", label: "Bitácora", icon: ScrollText, roles: ["administrador", "tecnico"] },
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    to: "/departamentos",
+    label: "Departamentos",
+    icon: Building2,
+    roles: ["administrador", "tecnico"],
+  },
+  {
+    to: "/segmentos",
+    label: "Segmentos",
+    icon: Network,
+  },
+  {
+    to: "/ips",
+    label: "Direcciones IP",
+    icon: Router,
+  },
+  {
+    to: "/equipos",
+    label: "Equipos",
+    icon: Monitor,
+  },
+  {
+    to: "/asignaciones",
+    label: "Asignaciones",
+    icon: Link2,
+  },
+  {
+    to: "/usuarios",
+    label: "Usuarios",
+    icon: Users,
+    roles: ["administrador"],
+  },
+  {
+    to: "/bitacora",
+    label: "Bitácora",
+    icon: ScrollText,
+    roles: ["administrador", "tecnico"],
+  },
 ];
 
 const roleLabel = {
@@ -56,8 +88,6 @@ export default function DashboardLayout() {
 
   const { theme, toggle } = useTheme();
   const { user, logout, can } = useAuth();
-
-  console.log("USER EN DASHBOARD:", user);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -86,8 +116,12 @@ export default function DashboardLayout() {
       } h-full`}
     >
       <div className="flex items-center gap-2.5 h-16 px-4 border-b border-border">
-        <div className="w-9 h-9 rounded-lg bg-primary grid place-items-center">
-          <Shield className="w-5 h-5 text-primary-foreground" />
+        <div className="w-9 h-9 rounded-lg bg-primary overflow-hidden grid place-items-center">
+          <img
+            src="/favicon.png"
+            alt="Logo Hospital Militar"
+            className="w-full h-full object-contain p-1"
+          />
         </div>
 
         {(!collapsed || mobile) && (

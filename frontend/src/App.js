@@ -7,7 +7,6 @@ import Login from "@/pages/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Departamentos from "@/pages/Departamentos";
-import Secciones from "@/pages/Secciones";
 import Segmentos from "@/pages/Segmentos";
 import DireccionesIP from "@/pages/DireccionesIP";
 import Equipos from "@/pages/Equipos";
@@ -22,6 +21,16 @@ const Protected = ({ children }) => {
   return children;
 };
 
+const RequireRole = ({ children, roles = [] }) => {
+  const { user, loading, can } = useAuth();
+
+  if (loading) return <div className="h-screen grid place-items-center bg-background text-muted-foreground">Cargando…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!can(...roles)) return <Navigate to="/" replace />;
+
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider>
@@ -32,8 +41,14 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Protected><DashboardLayout /></Protected>}>
               <Route index element={<Dashboard />} />
-              <Route path="departamentos" element={<Departamentos />} />
-              <Route path="secciones" element={<Secciones />} />
+              <Route
+                path="departamentos"
+                element={
+                  <RequireRole roles={["administrador", "tecnico"]}>
+                    <Departamentos />
+                  </RequireRole>
+                }
+              />
               <Route path="segmentos" element={<Segmentos />} />
               <Route path="ips" element={<DireccionesIP />} />
               <Route path="equipos" element={<Equipos />} />

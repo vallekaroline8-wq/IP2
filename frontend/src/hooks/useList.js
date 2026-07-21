@@ -67,12 +67,12 @@ export function useList(resource, extraParams = {}) {
   };
 }
 
-export function useOptions(resource) {
+export function useOptions(resource, params = {}) {
   const [options, setOptions] = useState([]);
 
   useEffect(() => {
     api
-      .get(`/${resource}`, { params: { all: true } })
+      .get(`/${resource}`, { params: { all: false, limit: 1000, ...params } })
       .then((r) => {
         if (Array.isArray(r.data)) {
           setOptions(r.data);
@@ -81,7 +81,7 @@ export function useOptions(resource) {
         }
       })
       .catch(() => {});
-  }, [resource]);
+  }, [resource, JSON.stringify(params)]);
 
   return options;
 }
