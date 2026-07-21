@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from "@/components/ui/command";
 import { confirmAction, ok, fail } from "@/utils/ui";
 
 export default function Asignaciones() {
   const { can } = useAuth();
-  const equipos = useOptions("equipos");
-  const segs = useOptions("segmentos");
+  const equipos = useOptions("asignaciones/equipos");
+ const segs = useOptions("asignaciones/segmentos");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -27,6 +29,11 @@ export default function Asignaciones() {
   const [reasignar, setReasignar] = useState(false);
   const [form, setForm] = useState({ equipo_id: "", segmento_id: "", ip_id: "" });
   const [availIps, setAvailIps] = useState([]);
+  const [equipoOpen, setEquipoOpen] = useState(false);
+  const [equipoQuery, setEquipoQuery] = useState("");
+
+  const filteredEquipos = equipos.filter((e) => e.nombre.toLowerCase().includes(equipoQuery.toLowerCase()));
+  const selectedEquipoNombre = equipos.find((e) => e.id === form.equipo_id)?.nombre;
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -105,10 +112,48 @@ export default function Asignaciones() {
           <div className="space-y-4 py-2">
             <div>
               <Label>Equipo</Label>
-              <Select value={form.equipo_id} onValueChange={(v) => setForm({ ...form, equipo_id: v })}>
-                <SelectTrigger className="mt-1.5" data-testid="assign-equipo"><SelectValue placeholder="Seleccione equipo" /></SelectTrigger>
-                <SelectContent>{equipos.map((e) => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
-              </Select>
+              <Popover open={equipoOpen} onOpenChange={(open) => {
+                setEquipoOpen(open);
+                if (!open) setEquipoQuery("");
+              }}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="mt-1.5 w-full justify-between text-left"
+                    data-testid="assign-equipo"
+                  >
+                    {selectedEquipoNombre || "Seleccione equipo"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full max-w-[24rem] p-0 overflow-hidden">
+                  <Command className="rounded-md border border-border bg-popover">
+                    <CommandInput
+                      value={equipoQuery}
+                      onValueChange={setEquipoQuery}
+                      placeholder="Escriba para filtrar equipos..."
+                      className="rounded-t-md"
+                    />
+                    <CommandList className="p-1">
+                      {filteredEquipos.length === 0 ? (
+                        <CommandEmpty>No hay equipos</CommandEmpty>
+                      ) : (
+                        filteredEquipos.map((e) => (
+                          <CommandItem
+                            key={e.id}
+                            onSelect={() => {
+                              setForm({ ...form, equipo_id: e.id });
+                              setEquipoOpen(false);
+                              setEquipoQuery("");
+                            }}
+                          >
+                            {e.nombre}
+                          </CommandItem>
+                        ))
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Segmento</Label>

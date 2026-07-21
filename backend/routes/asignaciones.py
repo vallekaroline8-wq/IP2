@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 
-from models.asignacion_model import AsignacionCreate
 from procedures.asignaciones import (
     obtener_asignaciones,
-    crear_asignacion,
+    obtener_equipos,
+    obtener_segmentos,
     liberar_asignacion
 )
 
@@ -13,31 +13,49 @@ router = APIRouter(
 )
 
 
+# ==========================================
+# LISTAR ASIGNACIONES
+# ==========================================
+
 @router.get(
     "",
     summary="Listar Asignaciones",
-    description="Obtiene las asignaciones de IP paginadas."
+    description="Obtiene todas las asignaciones de direcciones IP."
 )
-def listar_asignaciones(page: int = Query(1, ge=1)):
+def listar_asignaciones(page: int = 1):
     return obtener_asignaciones(page)
 
 
-@router.post(
-    "",
-    summary="Crear Asignación",
-    description="Asigna una IP a un equipo."
+# ==========================================
+# COMBO EQUIPOS
+# ==========================================
+
+@router.get(
+    "/equipos",
+    summary="Listar Equipos",
+    description="Obtiene los equipos activos."
 )
-def nueva_asignacion(datos: AsignacionCreate):
-    return crear_asignacion(
-        datos.equipo_id,
-        datos.ip_id
-    )
+def listar_equipos():
+    return obtener_equipos()
 
 
-@router.post(
-    "/{id_asignacion}/liberar",
-    summary="Liberar Asignación",
-    description="Libera una IP asignada."
+# ==========================================
+# COMBO SEGMENTOS
+# ==========================================
+
+@router.get(
+    "/segmentos",
+    summary="Listar Segmentos",
+    description="Obtiene los segmentos activos."
 )
+def listar_segmentos():
+    return obtener_segmentos()
+
+# ==========================================
+# LIBERAR ASIGNACIÓN
+# ==========================================
+
+@router.post("/{id_asignacion}/liberar")
 def liberar(id_asignacion: int):
     return liberar_asignacion(id_asignacion)
+
