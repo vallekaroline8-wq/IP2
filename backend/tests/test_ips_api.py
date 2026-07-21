@@ -22,7 +22,7 @@ def test_map_estado_frontend_y_db():
 
 
 def test_filtrar_ips_por_segmento_numero():
-    resultado = obtener_ips(page=1, limit=20, segmento_id=6)
+    resultado = obtener_ips(page=1, limit=20, segmento_id=1)
     assert resultado["total"] >= 1
     assert all(ip["direccion"].split(".")[2] == "1" for ip in resultado["items"])
 
