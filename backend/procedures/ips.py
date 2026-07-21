@@ -110,8 +110,8 @@ def obtener_ips(page: int = 1, limit: int = 20, search: str = "", segmento_id: i
             segmento = cursor.fetchone()
             third_octet = extraer_segmento_por_nombre(segmento.get("nombre") if segmento else None)
             if third_octet:
-                conditions.append("SUBSTRING_INDEX(SUBSTRING_INDEX(ip.direccion_ip, '.', 3), '.', -1) = %s")
-                params.append(third_octet)
+                conditions.append("(ip.id_segmento = %s OR SUBSTRING_INDEX(SUBSTRING_INDEX(ip.direccion_ip, '.', 3), '.', -1) = %s)")
+                params.extend([segmento_id, third_octet])
             else:
                 conditions.append("ip.id_segmento = %s")
                 params.append(segmento_id)

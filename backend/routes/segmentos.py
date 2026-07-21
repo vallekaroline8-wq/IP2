@@ -5,7 +5,10 @@ from procedures.segmentos import (
     obtener_segmentos,
     crear_segmento,
     actualizar_segmento,
-    eliminar_segmento
+    eliminar_segmento,
+    generar_ips_segmento,
+    limpiar_ips_segmento,
+    limpiar_todas_ips
 )
 
 router = APIRouter(
@@ -61,9 +64,38 @@ def editar_segmento(
 
 
 @router.delete(
+    "/limpiar-todas-ips",
+    summary="Limpiar Todas las IPs Generadas",
+    description="Elimina todas las direcciones IP no asignadas de tbl_ip."
+)
+def endpoint_limpiar_todas_ips():
+    return limpiar_todas_ips()
+
+
+@router.delete(
     "/{id_segmento}",
     summary="Eliminar Segmento",
     description="Realiza una eliminación lógica del segmento."
 )
 def borrar_segmento(id_segmento: int):
     return eliminar_segmento(id_segmento)
+
+
+@router.post(
+    "/{id_segmento}/generar-ips",
+    summary="Generar IPs del Segmento",
+    description="Generar las 254 direcciones IP disponibles para el segmento."
+)
+def endpoint_generar_ips(id_segmento: int):
+    return generar_ips_segmento(id_segmento)
+
+
+@router.delete(
+    "/{id_segmento}/limpiar-ips",
+    summary="Limpiar IPs del Segmento",
+    description="Elimina las direcciones IP no asignadas de un segmento."
+)
+def endpoint_limpiar_ips(id_segmento: int):
+    return limpiar_ips_segmento(id_segmento)
+
+

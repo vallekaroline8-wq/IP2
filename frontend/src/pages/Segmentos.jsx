@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Trash2, Loader2, Zap, ShieldCheck } from "lucide-react";
+import { Pencil, Trash2, Loader2, Zap, RotateCcw, ShieldCheck } from "lucide-react";
 import api from "@/services/api";
 import { useList, useOptions } from "@/hooks/useList";
 import { useAuth } from "@/context/AuthContext";
@@ -47,8 +47,13 @@ export default function Segmentos() {
   };
 
   const generar = async (s) => {
-    if (!(await confirmAction("Generar 254 IP", `Se generarán las 254 direcciones IP del segmento "${s.nombre}"`, "Generar"))) return;
-    try { const { data } = await api.post(`/segmentos/${getSegmentoId(s)}/generar-ips`); ok(data.message); L.refetch(); } catch (e) { fail(e); }
+    if (!(await confirmAction("Generar IPs Disponibles", `Se generarán las 254 direcciones IP disponibles para el segmento "${s.nombre}"`, "Generar"))) return;
+    try { const { data } = await api.post(`/segmentos/${getSegmentoId(s)}/generar-ips`); ok(data.mensaje || data.message || "IPs generadas correctamente"); L.refetch(); } catch (e) { fail(e); }
+  };
+
+  const limpiar = async (s) => {
+    if (!(await confirmAction("Limpiar IPs del Segmento", `Se eliminarán las direcciones IP no asignadas del segmento "${s.nombre}"`, "Limpiar"))) return;
+    try { const { data } = await api.delete(`/segmentos/${getSegmentoId(s)}/limpiar-ips`); ok(data.mensaje || "IPs del segmento limpiadas"); L.refetch(); } catch (e) { fail(e); }
   };
 
   const openAuth = async (s) => {
@@ -98,11 +103,14 @@ export default function Segmentos() {
                     <Td>
                       {s.total_ips > 0 ? (
                         <span className="text-xs"><span className="text-red-600 font-medium">{s.ocupadas}</span> / <span className="text-emerald-600 font-medium">{s.disponibles}</span> disp. ({s.total_ips})</span>
-                      ) : <span className="text-xs text-amber-600">Sin IP generadas</span>}
+                      ) : <span className="text-xs text-amber-600 font-medium">Sin IP generadas</span>}
                     </Td>
                     <Td className="text-right whitespace-nowrap">
-                      {can("administrador", "tecnico") && s.total_ips === 0 && (
-                        <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar 254 IP" data-testid={`gen-${s.id_segmento}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
+                      {can("administrador", "tecnico") && (
+                        <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar IPs Disponibles" data-testid={`gen-${s.id_segmento}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
+                      )}
+                      {can("administrador", "tecnico") && s.total_ips > 0 && (
+                        <Button variant="ghost" size="icon" onClick={() => limpiar(s)} title="Limpiar IPs del Segmento" data-testid={`clean-${s.id_segmento}`}><RotateCcw className="w-4 h-4 text-orange-600" /></Button>
                       )}
                       {can("administrador", "tecnico") && <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>}
                       {can("administrador") && <Button variant="ghost" size="icon" onClick={() => del(s)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
