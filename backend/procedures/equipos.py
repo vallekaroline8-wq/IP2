@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from mysql.connector import Error
+from procedures.bitacoramodulo import registrar_bitacora
 
 from database.conexion import get_connection
 
@@ -142,7 +143,8 @@ def obtener_equipo(id_equipo):
         if conexion.is_connected():
             cursor.close()
             conexion.close()
-def crear_equipo(datos):
+
+def crear_equipo(datos, id_usuario_actual):
     """
     Crea un nuevo equipo.
     """
@@ -226,6 +228,19 @@ def crear_equipo(datos):
 
         conexion.commit()
 
+        registrar_bitacora(
+    id_usuario=id_usuario_actual,
+    accion="CREAR",
+    tabla_afectada="tbl_equipo",
+    registro_id=cursor.lastrowid,
+    detalle=(
+        f"Se creó el equipo "
+        f"'{datos.nombre_equipo}'. "
+        f"Marca: '{datos.marca}', "
+        f"Modelo: '{datos.modelo}'."
+    )
+)
+
         return {
             "mensaje": "Equipo creado correctamente.",
             "id_equipo": cursor.lastrowid
@@ -250,7 +265,7 @@ def crear_equipo(datos):
             conexion.close()
 
 
-def actualizar_equipo(id_equipo, datos):
+def actualizar_equipo(id_equipo, datos, id_usuario_actual):
     """
     Actualiza un equipo.
     """
@@ -263,13 +278,22 @@ def actualizar_equipo(id_equipo, datos):
 
         # Verificar existencia
         cursor.execute("""
-            SELECT id_equipo
+            SELECT
+                id_equipo,
+                id_tipo,
+                id_departamento,
+                nombre_equipo,
+                marca,
+                modelo,
+                id_estado
             FROM tbl_equipo
             WHERE id_equipo=%s
             AND id_estado<>6
         """, (id_equipo,))
 
-        if not cursor.fetchone():
+        equipo_anterior = cursor.fetchone()
+
+        if not equipo_anterior:
             raise HTTPException(
                 status_code=404,
                 detail="Equipo no encontrado."
@@ -317,6 +341,55 @@ def actualizar_equipo(id_equipo, datos):
 
         conexion.commit()
 
+        cambios = []
+        if equipo_anterior["nombre_equipo"] != datos.nombre_equipo.strip():
+            cambios.append(
+                f"Nombre: '{equipo_anterior['nombre_equipo']}' → '{datos.nombre_equipo.strip()}'"
+            )
+
+        if equipo_anterior["marca"] != datos.marca:
+            cambios.append(
+                f"Marca: '{equipo_anterior['marca']}' → '{datos.marca}'"
+            )
+
+        if equipo_anterior["modelo"] != datos.modelo:
+            cambios.append(
+                f"Modelo: '{equipo_anterior['modelo']}' → '{datos.modelo}'"
+            )
+
+        if equipo_anterior["id_tipo"] != datos.id_tipo:
+            cambios.append(
+                f"Tipo: {equipo_anterior['id_tipo']} → {datos.id_tipo}"
+            )
+
+        if equipo_anterior["id_departamento"] != datos.id_departamento:
+            cambios.append(
+                f"Departamento: {equipo_anterior['id_departamento']} → {datos.id_departamento}"
+            )
+
+        detalle = "; ".join(cambios)
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="EDITAR",
+            tabla_afectada="tbl_equipo",
+            registro_id=id_equipo,
+            detalle=detalle if detalle else "No hubo cambios."
+        )
+
+        # Registrar en bitacora si hubo cambios
+        if cambios:
+            registrar_bitacora(
+                id_usuario=id_usuario_actual,
+                accion="ACTUALIZAR",
+                tabla_afectada="tbl_equipo",
+                registro_id=id_equipo,
+                detalle=(
+                    f"Se actualizaron los siguientes campos del equipo '{datos.nombre_equipo}': "
+                    + "; ".join(cambios)
+                )
+            )
+
         return {
             "mensaje": "Equipo actualizado correctamente."
         }
@@ -334,13 +407,12 @@ def actualizar_equipo(id_equipo, datos):
         )
 
     finally:
-
         if conexion.is_connected():
             cursor.close()
             conexion.close()
 
 
-def eliminar_equipo(id_equipo):
+def eliminar_equipo(id_equipo, id_usuario_actual):
     """
     Eliminación lógica del equipo.
     """
@@ -352,18 +424,21 @@ def eliminar_equipo(id_equipo):
         cursor = conexion.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT id_equipo
+            SELECT id_equipo, nombre_equipo
             FROM tbl_equipo
             WHERE id_equipo=%s
             AND id_estado<>6
         """, (id_equipo,))
 
-        if not cursor.fetchone():
+        equipo = cursor.fetchone()
+
+        if not equipo:
             raise HTTPException(
                 status_code=404,
                 detail="Equipo no encontrado."
             )
 
+        cursor.close()
         cursor = conexion.cursor()
 
         cursor.execute("""
@@ -374,6 +449,14 @@ def eliminar_equipo(id_equipo):
 
         conexion.commit()
 
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="ELIMINAR",
+            tabla_afectada="tbl_equipo",
+            registro_id=id_equipo,
+            detalle=f"Se eliminó el equipo '{equipo['nombre_equipo']}'."
+        )
+        
         return {
             "mensaje": "Equipo eliminado correctamente."
         }

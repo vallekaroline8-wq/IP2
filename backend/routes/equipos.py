@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from dependencies.auth_dependency import obtener_usuario_actual
 
 from models.equipo_model import (
     EquipoCreate,
@@ -44,8 +45,8 @@ def obtener_un_equipo(id_equipo: int):
     summary="Crear Equipo",
     description="Registra un nuevo equipo."
 )
-def nuevo_equipo(datos: EquipoCreate):
-    return crear_equipo(datos)
+def nuevo_equipo(datos: EquipoCreate, usuario_actual=Depends(obtener_usuario_actual)):
+    return crear_equipo(datos, usuario_actual["id_usuario"])
 
 
 @router.put(
@@ -55,11 +56,13 @@ def nuevo_equipo(datos: EquipoCreate):
 )
 def editar_equipo(
     id_equipo: int,
-    datos: EquipoUpdate
+    datos: EquipoUpdate,
+    usuario_actual=Depends(obtener_usuario_actual)
 ):
     return actualizar_equipo(
         id_equipo,
-        datos
+        datos,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -68,5 +71,5 @@ def editar_equipo(
     summary="Eliminar Equipo",
     description="Realiza una eliminación lógica del equipo."
 )
-def borrar_equipo(id_equipo: int):
-    return eliminar_equipo(id_equipo)
+def borrar_equipo(id_equipo: int, usuario_actual=Depends(obtener_usuario_actual)):
+    return eliminar_equipo(id_equipo, usuario_actual["id_usuario"])
