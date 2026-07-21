@@ -3,6 +3,7 @@ from mysql.connector import Error
 import hashlib
 
 from database.conexion import get_connection
+from procedures.bitacoramodulo import registrar_bitacora
 
 ROLES_VALIDOS = [
     "ADMINISTRADOR",
@@ -80,7 +81,8 @@ def crear_usuario(
     usuario,
     contrasena,
     rol,
-    id_estado
+    id_estado,
+    id_usuario_actual
 ):
     """
     Crea un nuevo usuario.
@@ -184,6 +186,14 @@ def crear_usuario(
         )
         conexion.commit()
 
+        registrar_bitacora(
+    id_usuario=id_usuario_actual,
+    accion="CREAR",
+    tabla_afectada="tbl_usuario",
+    registro_id=cursor.lastrowid,
+    detalle=f"Se creó el usuario '{usuario}'."
+)
+
         return {
             "mensaje": "Usuario creado correctamente.",
             "id_usuario": cursor.lastrowid
@@ -207,7 +217,8 @@ def actualizar_usuario(
     nombre,
     usuario,
     rol,
-    id_estado
+    id_estado,
+    id_usuario_actual
 ):
     """
     Actualiza un usuario.
@@ -240,18 +251,24 @@ def actualizar_usuario(
 
         # Verificar que exista el usuario
         consulta_sql = """
-            SELECT id_usuario
+            SELECT
+            nombre,
+            usuario,
+            rol,
+            id_estado
             FROM tbl_usuario
             WHERE id_usuario = %s
               AND id_estado = 1
         """
         cursor.execute(consulta_sql, (id_usuario,))
 
-        if not cursor.fetchone():
+        usuario_anterior = cursor.fetchone()
+
+        if not usuario_anterior:
             raise HTTPException(
-                status_code=404,
-                detail="El usuario no existe."
-            )
+            status_code=404,
+            detail="El usuario no existe."
+        )
 
         # Verificar usuario duplicado
         consulta_sql = """
@@ -308,6 +325,38 @@ def actualizar_usuario(
         )
         conexion.commit()
 
+        cambios = []
+
+        if usuario_anterior["nombre"] != nombre:
+            cambios.append(
+            f"Nombre: '{usuario_anterior['nombre']}' → '{nombre}'"
+        )
+
+        if usuario_anterior["usuario"] != usuario:
+            cambios.append(
+            f"Usuario: '{usuario_anterior['usuario']}' → '{usuario}'"
+        )
+
+        if usuario_anterior["rol"] != rol:
+            cambios.append(
+            f"Rol: '{usuario_anterior['rol']}' → '{rol}'"
+        )
+
+        if usuario_anterior["id_estado"] != id_estado:
+            cambios.append(
+            f"Estado: {usuario_anterior['id_estado']} → {id_estado}"
+        )
+
+        detalle = "; ".join(cambios)
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="EDITAR",
+            tabla_afectada="tbl_usuario",
+            registro_id=id_usuario,
+            detalle=detalle if detalle else "No hubo cambios."
+        )
+
         return {
             "mensaje": "Usuario actualizado correctamente."
         }
@@ -325,7 +374,7 @@ def actualizar_usuario(
             conexion.close()
 
 
-def eliminar_usuario(id_usuario):
+def eliminar_usuario(id_usuario, id_usuario_actual):
     """
     Desactiva un usuario (eliminación lógica).
     """
@@ -334,14 +383,20 @@ def eliminar_usuario(id_usuario):
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_usuario
+            SELECT 
+                id_usuario,
+                usuario,
+                id_estado
             FROM tbl_usuario
             WHERE id_usuario = %s
               AND id_estado IN (1, 2)
         """
+
         cursor.execute(consulta_sql, (id_usuario,))
 
-        if not cursor.fetchone():
+        usuario_bd = cursor.fetchone()
+
+        if not usuario_bd:
             raise HTTPException(
                 status_code=404,
                 detail="El usuario no existe."
@@ -358,9 +413,18 @@ def eliminar_usuario(id_usuario):
         cursor.execute(consulta_sql, (id_usuario,))
         conexion.commit()
 
+        registrar_bitacora(
+    id_usuario=id_usuario_actual,
+    accion="DESACTIVAR",
+    tabla_afectada="tbl_usuario",
+    registro_id=id_usuario,
+    detalle=f"Se desactivó el usuario '{usuario_bd['usuario']}'."
+)
+
         return {
             "mensaje": "Usuario desactivado correctamente."
         }
+    
     except HTTPException:
         raise
     except Error as e:
@@ -375,7 +439,7 @@ def eliminar_usuario(id_usuario):
             conexion.close()
 
 
-def cambiar_password(id_usuario, contrasena):
+def cambiar_password(id_usuario, contrasena, id_usuario_actual):
     """
     Cambia la contraseña de un usuario.
     """
@@ -394,18 +458,21 @@ def cambiar_password(id_usuario, contrasena):
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_usuario
+            SELECT id_usuario,
+            usuario
             FROM tbl_usuario
             WHERE id_usuario = %s
               AND id_estado = 1
         """
         cursor.execute(consulta_sql, (id_usuario,))
 
-        if not cursor.fetchone():
-            raise HTTPException(
+        usuario_bd = cursor.fetchone()
+
+        if not usuario_bd:
+                raise HTTPException(
                 status_code=404,
                 detail="El usuario no existe."
-            )
+                )
 
         password_hash = hashlib.sha256(contrasena.encode("utf-8")).hexdigest()
 
@@ -420,9 +487,18 @@ def cambiar_password(id_usuario, contrasena):
         cursor.execute(consulta_sql, (password_hash, id_usuario))
         conexion.commit()
 
+        registrar_bitacora(
+    id_usuario=id_usuario_actual,
+    accion="CAMBIAR CONTRASEÑA",
+    tabla_afectada="tbl_usuario",
+    registro_id=id_usuario,
+    detalle=f"Se actualizó la contraseña del usuario '{usuario_bd['usuario']}'."
+)
+
         return {
             "mensaje": "Contraseña actualizada correctamente."
         }
+    
     except HTTPException:
         raise
     except Error as e:
@@ -437,7 +513,7 @@ def cambiar_password(id_usuario, contrasena):
             conexion.close()
 
 
-def cambiar_estado_usuario(id_usuario, id_estado):
+def cambiar_estado_usuario(id_usuario, id_estado, id_usuario_actual):
     """
     Activa o desactiva un usuario.
     """
@@ -447,31 +523,51 @@ def cambiar_estado_usuario(id_usuario, id_estado):
 
         # Verificar que exista el usuario
         consulta_sql = """
-            SELECT id_usuario
+            SELECT id_usuario, usuario, id_estado
             FROM tbl_usuario
             WHERE id_usuario = %s
         """
         cursor.execute(consulta_sql, (id_usuario,))
 
-        if not cursor.fetchone():
+        usuario_bd = cursor.fetchone()
+
+        if not usuario_bd:
             raise HTTPException(
                 status_code=404,
                 detail="El usuario no existe."
             )
+        
+        consulta_sql = """
+            SELECT nombre
+            FROM tbl_estado
+            WHERE id_estado = %s
+                        """
+        cursor.execute(
+                consulta_sql,
+                (usuario_bd["id_estado"],)
+            )
+
+        estado_anterior = cursor.fetchone()
+        
 
         # Verificar estado
         consulta_sql = """
-            SELECT id_estado
+            SELECT id_estado,
+            nombre
             FROM tbl_estado
             WHERE id_estado = %s
         """
         cursor.execute(consulta_sql, (id_estado,))
 
-        if not cursor.fetchone():
+        estado_nuevo = cursor.fetchone()
+
+        if not estado_nuevo:
             raise HTTPException(
                 status_code=404,
                 detail="Estado inválido."
             )
+        
+        
 
         cursor.close()
         cursor = conexion.cursor()
@@ -490,9 +586,23 @@ def cambiar_estado_usuario(id_usuario, id_estado):
         )
         conexion.commit()
 
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="CAMBIAR ESTADO",
+            tabla_afectada="tbl_usuario",
+            registro_id=id_usuario,
+            detalle=(
+        f"Se cambió el estado del usuario "
+        f"'{usuario_bd['usuario']}' "
+        f"de '{estado_anterior['nombre']}' "
+        f"a '{estado_nuevo['nombre']}'."
+    )
+)
+
         return {
             "mensaje": "Estado actualizado correctamente."
         }
+
     except HTTPException:
         raise
     except Error as e:
