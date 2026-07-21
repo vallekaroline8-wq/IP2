@@ -20,10 +20,12 @@ router = APIRouter(
     description="Obtiene los segmentos desde tbl_segmento."
 )
 def listar_segmentos(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=5000),
     all: bool = Query(False, description="Incluye todos los segmentos cuando es true"),
     search: str = Query("", description="Texto a buscar en el nombre del segmento")
 ):
-    return obtener_segmentos(all, search)
+    return obtener_segmentos(page=page, limit=limit, all=all, search=search)
 
 
 @router.post(

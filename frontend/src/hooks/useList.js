@@ -72,7 +72,7 @@ export function useOptions(resource, params = {}) {
 
   useEffect(() => {
     api
-      .get(`/${resource}`, { params: { all: false, ...params } })
+      .get(`/${resource}`, { params: { all: false, limit: 1000, ...params } })
       .then((r) => {
         if (Array.isArray(r.data)) {
           setOptions(r.data);

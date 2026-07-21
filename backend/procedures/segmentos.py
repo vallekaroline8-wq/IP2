@@ -4,10 +4,12 @@ from mysql.connector import Error
 from database.conexion import get_connection
 
 
-def obtener_segmentos(all: bool = False, search: str = ""):
-    """Obtiene los segmentos desde tbl_segmento."""
-
+def obtener_segmentos(page: int = 1, limit: int = 10, all: bool = False, search: str = ""):
+    """Obtiene los segmentos desde tbl_segmento con paginación."""
+    
+    offset = (page - 1) * limit
     conexion = get_connection()
+    cursor = None
 
     try:
         cursor = conexion.cursor(dictionary=True)
@@ -35,10 +37,40 @@ def obtener_segmentos(all: bool = False, search: str = ""):
         if conditions:
             consulta_sql += "\n            WHERE " + " AND ".join(conditions)
 
-        consulta_sql += "\n            ORDER BY nombre ASC"
+        # Ordenar por el número del segmento (primeros números, luego alfabéticamente)
+        # Extrae el primer número del nombre si existe
+        consulta_sql += """
+            ORDER BY 
+                CASE 
+                    WHEN nombre REGEXP '^[0-9]' THEN 0
+                    ELSE 1
+                END ASC,
+                CAST(REGEXP_SUBSTR(nombre, '^[0-9]+') AS UNSIGNED) ASC,
+                nombre ASC
+        """
+        
+        # Agregar paginación
+        consulta_sql += "\n            LIMIT %s OFFSET %s"
+        select_params = list(params)
+        select_params.extend([limit, offset])
 
-        cursor.execute(consulta_sql, tuple(params))
-        return cursor.fetchall()
+        cursor.execute(consulta_sql, tuple(select_params))
+        items = cursor.fetchall()
+
+        # Contar el total de registros
+        count_sql = "SELECT COUNT(*) AS total FROM tbl_segmento"
+        if conditions:
+            count_sql += "\n            WHERE " + " AND ".join(conditions)
+        
+        cursor.execute(count_sql, tuple(params))
+        total = cursor.fetchone()["total"]
+
+        return {
+            "items": items,
+            "page": page,
+            "pages": (total + limit - 1) // limit,
+            "total": total,
+        }
 
     except Error as e:
         raise HTTPException(
@@ -47,7 +79,7 @@ def obtener_segmentos(all: bool = False, search: str = ""):
         )
 
     finally:
-        if conexion and conexion.is_connected():
+        if conexion and conexion.is_connected() and cursor is not None:
             cursor.close()
             conexion.close()
 
