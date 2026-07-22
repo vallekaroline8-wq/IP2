@@ -2,7 +2,7 @@ import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export const Toolbar = ({ search, setSearch, onAdd, addLabel = "Nuevo", canAdd = true, children }) => (
+export const Toolbar = ({ search = "", setSearch = () => {}, onAdd, addLabel = "Nuevo", canAdd = true, children }) => (
   <div className="flex flex-col sm:flex-row gap-3 p-4 border-b border-border">
     <div className="relative flex-1 max-w-sm">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

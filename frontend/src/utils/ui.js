@@ -37,7 +37,7 @@ export function fail(e) { toast.error(apiError(e?.response?.data?.detail) || e?.
 
 export async function downloadReport(recurso, formato) {
   try {
-    const res = await api.get(`/export/${recurso}/${formato}`, { responseType: "blob" });
+    const res = await api.get(`/${recurso}/export/${formato}`, { responseType: "blob" });
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const a = document.createElement("a");
     a.href = url;

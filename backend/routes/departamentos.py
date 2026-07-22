@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from models.departamento_model import DepartamentoCreate
+
+from dependencies.auth_dependency import obtener_usuario_actual
 
 from procedures.departamentos import (
     obtener_departamentos,
@@ -29,8 +31,8 @@ def listar_departamentos():
     summary="Nuevo Departamento",
     description="Crea un nuevo departamento."
 )
-def nuevo_departamento(datos: DepartamentoCreate):
-    return crear_departamento(datos.nombre)
+def nuevo_departamento(datos: DepartamentoCreate, usuario_actual=Depends(obtener_usuario_actual)):
+    return crear_departamento(datos.nombre, usuario_actual["id_usuario"])
 
 
 @router.put(
@@ -40,11 +42,13 @@ def nuevo_departamento(datos: DepartamentoCreate):
 )
 def editar_departamento(
     id_departamento: int,
-    datos: DepartamentoCreate
+    datos: DepartamentoCreate,
+    usuario_actual=Depends(obtener_usuario_actual)
 ):
     return actualizar_departamento(
         id_departamento,
-        datos.nombre
+        datos.nombre,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -53,5 +57,5 @@ def editar_departamento(
     summary="Desactivar Departamento",
     description="Realiza una eliminación lógica cambiando el estado del departamento a INACTIVO."
 )
-def borrar_departamento(id_departamento: int):
-    return eliminar_departamento(id_departamento)
+def borrar_departamento(id_departamento: int, usuario_actual=Depends(obtener_usuario_actual)):
+    return eliminar_departamento(id_departamento, usuario_actual["id_usuario"])

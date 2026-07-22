@@ -10,3 +10,4 @@ def listar_bitacora(
     search: str = Query("", description="Texto a buscar en la bitácora")
 ):
     return obtener_bitacora(page=page, limit=limit, search=search)
+
