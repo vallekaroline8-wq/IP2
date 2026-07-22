@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from "@/components/ui/command";
 import { confirmAction, ok, fail } from "@/utils/ui";
 
 export default function Asignaciones() {
   const { can } = useAuth();
-  const equipos = useOptions("equipos");
-  const segs = useOptions("segmentos");
+  const equipos = useOptions("asignaciones/equipos");
+  const segs = useOptions("asignaciones/segmentos");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -27,6 +29,11 @@ export default function Asignaciones() {
   const [reasignar, setReasignar] = useState(false);
   const [form, setForm] = useState({ equipo_id: "", segmento_id: "", ip_id: "" });
   const [availIps, setAvailIps] = useState([]);
+  const [equipoOpen, setEquipoOpen] = useState(false);
+  const [equipoQuery, setEquipoQuery] = useState("");
+
+  const filteredEquipos = equipos.filter((e) => e.nombre.toLowerCase().includes(equipoQuery.toLowerCase()));
+  const selectedEquipoNombre = equipos.find((e) => e.id === form.equipo_id)?.nombre;
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -36,9 +43,25 @@ export default function Asignaciones() {
   useEffect(() => { fetch(); }, [fetch]);
 
   useEffect(() => {
-    if (!form.segmento_id) { setAvailIps([]); return; }
-    api.get("/ips", { params: { segmento_id: form.segmento_id, estado: "disponible", limit: 300 } })
-      .then((r) => setAvailIps(r.data.items)).catch(() => setAvailIps([]));
+    if (!form.segmento_id) {
+      setAvailIps([]);
+      return;
+    }
+
+    api.get("/asignaciones/ips", {
+      params: {
+        id_segmento: Number(form.segmento_id)
+      }
+    })
+      .then((response) => {
+        console.log("IPS disponibles:", response.data);
+        setAvailIps(response.data);
+      })
+      .catch((error) => {
+        console.error(error);
+        setAvailIps([]);
+      });
+
   }, [form.segmento_id]);
 
   const openNew = (reasig = false) => { setReasignar(reasig); setForm({ equipo_id: "", segmento_id: "", ip_id: "" }); setOpen(true); };
@@ -47,8 +70,8 @@ export default function Asignaciones() {
     if (!form.equipo_id || !form.ip_id) return fail({ response: { data: { detail: "Seleccione equipo e IP" } } });
     setSaving(true);
     try {
-      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones";
-      await api.post(url, { equipo_id: form.equipo_id, ip_id: form.ip_id });
+      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones/";
+      await api.post(url, { id_ip: Number(form.ip_id), id_equipo: Number(form.equipo_id), id_usuario: 1 });
       ok(reasignar ? "IP reasignada correctamente" : "IP asignada correctamente");
       setOpen(false); fetch();
     } catch (e) { fail(e); } finally { setSaving(false); }
@@ -105,23 +128,61 @@ export default function Asignaciones() {
           <div className="space-y-4 py-2">
             <div>
               <Label>Equipo</Label>
-              <Select value={form.equipo_id} onValueChange={(v) => setForm({ ...form, equipo_id: v })}>
-                <SelectTrigger className="mt-1.5" data-testid="assign-equipo"><SelectValue placeholder="Seleccione equipo" /></SelectTrigger>
-                <SelectContent>{equipos.map((e) => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
-              </Select>
+              <Popover open={equipoOpen} onOpenChange={(open) => {
+                setEquipoOpen(open);
+                if (!open) setEquipoQuery("");
+              }}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="mt-1.5 w-full justify-between text-left"
+                    data-testid="assign-equipo"
+                  >
+                    {selectedEquipoNombre || "Seleccione equipo"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full max-w-[24rem] p-0 overflow-hidden">
+                  <Command className="rounded-md border border-border bg-popover">
+                    <CommandInput
+                      value={equipoQuery}
+                      onValueChange={setEquipoQuery}
+                      placeholder="Escriba para filtrar equipos..."
+                      className="rounded-t-md"
+                    />
+                    <CommandList className="p-1">
+                      {filteredEquipos.length === 0 ? (
+                        <CommandEmpty>No hay equipos</CommandEmpty>
+                      ) : (
+                        filteredEquipos.map((e) => (
+                          <CommandItem
+                            key={e.id}
+                            onSelect={() => {
+                              setForm({ ...form, equipo_id: e.id });
+                              setEquipoOpen(false);
+                              setEquipoQuery("");
+                            }}
+                          >
+                            {e.nombre}
+                          </CommandItem>
+                        ))
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Segmento</Label>
-              <Select value={form.segmento_id} onValueChange={(v) => setForm({ ...form, segmento_id: v, ip_id: "" })}>
+              <Select value={String(form.segmento_id)} onValueChange={(v) => { console.log("ID seleccionado:", v); setForm({ ...form, segmento_id: Number(v), ip_id: "" }); }}>
                 <SelectTrigger className="mt-1.5" data-testid="assign-segmento"><SelectValue placeholder="Seleccione segmento" /></SelectTrigger>
-                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}</SelectContent>
+                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.nombre}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>Dirección IP disponible</Label>
-              <Select value={form.ip_id} onValueChange={(v) => setForm({ ...form, ip_id: v })} disabled={!form.segmento_id}>
+              <Select value={String(form.ip_id)} onValueChange={(v) => setForm({ ...form, ip_id: Number(v) })} disabled={!form.segmento_id}>
                 <SelectTrigger className="mt-1.5 font-mono-ip" data-testid="assign-ip"><SelectValue placeholder={form.segmento_id ? "Seleccione IP" : "Elija un segmento primero"} /></SelectTrigger>
-                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={ip.id} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={String(ip.id)} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
               </Select>
               {form.segmento_id && availIps.length === 0 && <p className="text-xs text-amber-600 mt-1">No hay IP disponibles en este segmento</p>}
             </div>
