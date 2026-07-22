@@ -84,12 +84,9 @@ export default function Asignaciones() {
 
   return (
     <div>
-      <PageHeader title="Asignaciones de IP" subtitle="Asignar, liberar y reasignar direcciones IP" exportResource="asignaciones">
+      <PageHeader title="Asignaciones de IP" subtitle="Asignar y liberar direcciones IP" exportResource="asignaciones">
         {can("administrador", "tecnico") && (
-          <>
-            <Button size="sm" variant="outline" onClick={() => openNew(true)} data-testid="reassign-btn"><RefreshCw className="w-4 h-4 mr-1.5" />Reasignar</Button>
-            <Button size="sm" onClick={() => openNew(false)} data-testid="assign-btn"><Plus className="w-4 h-4 mr-1.5" />Asignar IP</Button>
-          </>
+          <Button size="sm" onClick={() => openNew(false)} data-testid="assign-btn"><Plus className="w-4 h-4 mr-1.5" />Asignar IP</Button>
         )}
       </PageHeader>
 
