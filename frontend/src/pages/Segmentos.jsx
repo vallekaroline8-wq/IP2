@@ -20,6 +20,7 @@ export default function Segmentos() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ nombre: "", direccion_red: "", mascara: "255.255.255.0", gateway: "" });
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authSeg, setAuthSeg] = useState(null);
@@ -27,11 +28,38 @@ export default function Segmentos() {
 
   const getSegmentoId = (s) => s.id_segmento ?? s.id;
 
-  const openNew = () => { setEditing(null); setForm({ nombre: "", direccion_red: "", mascara: "255.255.255.0", gateway: "" }); setOpen(true); };
-  const openEdit = (s) => { setEditing({ ...s, id_segmento: getSegmentoId(s) }); setForm({ nombre: s.nombre, direccion_red: s.direccion_red, mascara: s.mascara, gateway: s.gateway || "" }); setOpen(true); };
+  const isValidIPv4 = (ip) => {
+    const ipv4Regex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4Regex.test(ip?.trim() || "");
+  };
+
+  const openNew = () => { setEditing(null); setForm({ nombre: "", direccion_red: "", mascara: "255.255.255.0", gateway: "" }); setErrors({}); setOpen(true); };
+  const openEdit = (s) => { setEditing({ ...s, id_segmento: getSegmentoId(s) }); setForm({ nombre: s.nombre, direccion_red: s.direccion_red, mascara: s.mascara, gateway: s.gateway || "" }); setErrors({}); setOpen(true); };
+
+  const validateForm = () => {
+    const errs = {};
+    if (!form.nombre.trim()) {
+      errs.nombre = "El nombre del segmento es obligatorio";
+    }
+    if (!form.direccion_red.trim()) {
+      errs.direccion_red = "La dirección de red es obligatoria";
+    } else if (!isValidIPv4(form.direccion_red)) {
+      errs.direccion_red = "Formato IPv4 inválido (ej. 172.16.0.0)";
+    }
+    if (!form.mascara.trim()) {
+      errs.mascara = "La máscara de red es obligatoria";
+    } else if (!isValidIPv4(form.mascara)) {
+      errs.mascara = "Formato IPv4 inválido (ej. 255.255.255.0)";
+    }
+    if (form.gateway.trim() && !isValidIPv4(form.gateway)) {
+      errs.gateway = "Formato IPv4 inválido (ej. 172.16.0.1)";
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const save = async () => {
-    if (!form.nombre.trim() || !form.direccion_red.trim()) return fail({ response: { data: { detail: "Nombre y dirección de red son obligatorios" } } });
+    if (!validateForm()) return;
     setSaving(true);
     try {
       if (editing) await api.put(`/segmentos/${getSegmentoId(editing)}`, form);
@@ -124,15 +152,64 @@ export default function Segmentos() {
         <Pagination page={L.page} pages={L.pages} total={L.total} onChange={L.setPage} />
       </TableWrap>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setErrors({}); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} Segmento</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <div><Label>Nombre</Label><Input className="mt-1.5" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} data-testid="form-nombre" /></div>
-            <div><Label>Dirección de Red</Label><Input className="mt-1.5 font-mono-ip" placeholder="192.168.50.0" value={form.direccion_red} onChange={(e) => setForm({ ...form, direccion_red: e.target.value })} data-testid="form-red" /></div>
+            <div>
+              <Label>Nombre</Label>
+              <Input
+                className={`mt-1.5 ${errors.nombre ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.nombre}
+                onChange={(e) => {
+                  setForm({ ...form, nombre: e.target.value });
+                  if (errors.nombre) setErrors((prev) => ({ ...prev, nombre: "" }));
+                }}
+                data-testid="form-nombre"
+              />
+              {errors.nombre && <p className="text-xs text-destructive mt-1">{errors.nombre}</p>}
+            </div>
+            <div>
+              <Label>Dirección de Red</Label>
+              <Input
+                className={`mt-1.5 font-mono-ip ${errors.direccion_red ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                placeholder="172.16.0.0"
+                value={form.direccion_red}
+                onChange={(e) => {
+                  setForm({ ...form, direccion_red: e.target.value });
+                  if (errors.direccion_red) setErrors((prev) => ({ ...prev, direccion_red: "" }));
+                }}
+                data-testid="form-red"
+              />
+              {errors.direccion_red && <p className="text-xs text-destructive mt-1">{errors.direccion_red}</p>}
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Máscara</Label><Input className="mt-1.5 font-mono-ip" value={form.mascara} onChange={(e) => setForm({ ...form, mascara: e.target.value })} /></div>
-              <div><Label>Gateway</Label><Input className="mt-1.5 font-mono-ip" placeholder="192.168.50.254" value={form.gateway} onChange={(e) => setForm({ ...form, gateway: e.target.value })} /></div>
+              <div>
+                <Label>Máscara</Label>
+                <Input
+                  className={`mt-1.5 font-mono-ip ${errors.mascara ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  placeholder="255.255.255.0"
+                  value={form.mascara}
+                  onChange={(e) => {
+                    setForm({ ...form, mascara: e.target.value });
+                    if (errors.mascara) setErrors((prev) => ({ ...prev, mascara: "" }));
+                  }}
+                />
+                {errors.mascara && <p className="text-xs text-destructive mt-1">{errors.mascara}</p>}
+              </div>
+              <div>
+                <Label>Gateway</Label>
+                <Input
+                  className={`mt-1.5 font-mono-ip ${errors.gateway ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  placeholder="172.16.0.1"
+                  value={form.gateway}
+                  onChange={(e) => {
+                    setForm({ ...form, gateway: e.target.value });
+                    if (errors.gateway) setErrors((prev) => ({ ...prev, gateway: "" }));
+                  }}
+                />
+                {errors.gateway && <p className="text-xs text-destructive mt-1">{errors.gateway}</p>}
+              </div>
             </div>
           </div>
           <DialogFooter>
