@@ -7,7 +7,9 @@ from procedures.asignaciones import (
     obtener_equipos,
     obtener_ips_disponibles,
     obtener_segmentos,
-    liberar_asignacion
+    liberar_asignacion,
+    exportar_asignaciones_excel,
+    exportar_asignaciones_pdf
 )
 
 router = APIRouter(
@@ -71,7 +73,21 @@ def listar_ips_disponibles(id_segmento: int):
     return obtener_ips_disponibles(id_segmento)
 
 # ==========================================
-# ASIGNAR DIRECCIÓN IP
+# EXPORTAR ASIGNACIONES A EXCEL
+# ==========================================
+
+@router.get("/export/excel")
+def exportar_excel():
+    return exportar_asignaciones_excel()
+
+# ==========================================# EXPORTAR ASIGNACIONES A PDF
+# ==========================================
+
+@router.get("/export/pdf")
+def exportar_pdf():
+    return exportar_asignaciones_pdf()
+
+# ==========================================# ASIGNAR DIRECCIÓN IP
 # ==========================================
 
 @router.post("/")

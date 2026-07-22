@@ -17,7 +17,7 @@ from routes.tipo_dispositivo import router as tipo_dispositivo_router
 from routes.export_equipos import router as export_equipos_router
 from routes.asignaciones import router as asignaciones_router
 from routes.bitacora import router as bitacora_router
-from routes.export_equipos_pdf import router as export_equipos_pdf_router   
+from routes.export_equipos_pdf import router as export_equipos_pdf_router
 
 app = FastAPI(
     title="SIGIP API",
