@@ -1,5 +1,7 @@
 from fastapi import HTTPException
 from mysql.connector import Error
+from procedures.bitacoramodulo import registrar_bitacora
+
 
 from database.conexion import get_connection
 
@@ -95,7 +97,7 @@ def obtener_segmentos(page: int = 1, limit: int = 10, all: bool = False, search:
             conexion.close()
 
 
-def crear_segmento(nombre, direccion_red, mascara, gateway=""):
+def crear_segmento(nombre, direccion_red, mascara, gateway="", id_usuario_actual=None):
     nombre = nombre.strip()
     direccion_red = direccion_red.strip()
     mascara = mascara.strip()
@@ -198,6 +200,18 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
                 WHERE id_segmento = %s
             """, (nombre, direccion_red, mascara, gateway, id_reactivar))
             conexion.commit()
+
+            registrar_bitacora(
+                id_usuario=id_usuario_actual,
+                accion="REACTIVAR",
+                tabla_afectada="tbl_segmento",
+                registro_id=id_reactivar,
+                detalle=(
+                f"Se reactivó el segmento '{nombre}' "
+                f"con dirección de red '{direccion_red}'."
+                )
+            )
+
             return {
                 "mensaje": "Segmento reactivado correctamente.",
                 "id_segmento": id_reactivar
@@ -236,6 +250,17 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
 
         conexion.commit()
 
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="CREAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=cursor.lastrowid,
+            detalle=(
+            f"Se creó el segmento '{nombre}' "
+            f"con dirección de red '{direccion_red}'."
+            )
+        )
+
         return {
             "mensaje": "Segmento creado correctamente.",
             "id_segmento": cursor.lastrowid
@@ -257,7 +282,7 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
             conexion.close()
 
 
-def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway=""):
+def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="", id_usuario_actual=None):
     nombre = nombre.strip()
     direccion_red = direccion_red.strip()
     mascara = mascara.strip()
@@ -275,19 +300,25 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_segmento
+            SELECT
+                id_segmento,
+                nombre,
+                direccion_red,
+                mascara,
+                gateway
             FROM tbl_segmento
             WHERE id_segmento = %s
             AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (id_segmento,))
+        segmento_anterior = cursor.fetchone()
 
-        if not cursor.fetchone():
+        if not segmento_anterior:
             raise HTTPException(
-                status_code=404,
-                detail="Segmento no encontrado."
-            )
+            status_code=404,
+            detail="Segmento no encontrado."
+        )
 
         consulta_sql = """
             SELECT id_segmento
@@ -335,6 +366,7 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
                     detail="Ya existe un segmento con ese gateway."
                 )
 
+        cursor.close()
         cursor = conexion.cursor()
 
         consulta_sql = """
@@ -360,6 +392,40 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
 
         conexion.commit()
 
+        cambios = []
+        if segmento_anterior["nombre"] != nombre:
+            cambios.append(
+                f"Nombre: '{segmento_anterior['nombre']}' → '{nombre}'"
+            )
+
+        if segmento_anterior["direccion_red"] != direccion_red:
+            cambios.append(
+                f"Dirección de red: "
+                f"'{segmento_anterior['direccion_red']}' → '{direccion_red}'"
+            )
+
+        if segmento_anterior["mascara"] != mascara:
+            cambios.append(
+                f"Máscara: "
+                f"'{segmento_anterior['mascara']}' → '{mascara}'"
+            )
+
+        if segmento_anterior["gateway"] != gateway:
+            cambios.append(
+                f"Gateway: "
+                f"'{segmento_anterior['gateway']}' → '{gateway}'"
+            )
+
+        detalle = "; ".join(cambios)
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="EDITAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=id_segmento,
+            detalle=detalle if detalle else "No hubo cambios."
+        )
+          
         return {
             "mensaje": "Segmento actualizado correctamente."
         }
@@ -380,14 +446,16 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
             conexion.close()
 
 
-def eliminar_segmento(id_segmento):
+def eliminar_segmento(id_segmento, id_usuario_actual):
     conexion = get_connection()
 
     try:
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_segmento
+            SELECT
+                id_segmento,
+                nombre
             FROM tbl_segmento
             WHERE id_segmento = %s
             AND id_estado = 1
@@ -395,12 +463,15 @@ def eliminar_segmento(id_segmento):
 
         cursor.execute(consulta_sql, (id_segmento,))
 
-        if not cursor.fetchone():
+        segmento = cursor.fetchone()
+
+        if not segmento:
             raise HTTPException(
                 status_code=404,
                 detail="Segmento no encontrado."
             )
 
+        cursor.close()
         cursor = conexion.cursor()
 
         consulta_sql = """
@@ -411,6 +482,14 @@ def eliminar_segmento(id_segmento):
 
         cursor.execute(consulta_sql, (id_segmento,))
         conexion.commit()
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="ELIMINAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=id_segmento,
+            detalle=f"Se eliminó el segmento '{segmento['nombre']}'."
+        )
 
         return {
             "mensaje": "Segmento eliminado correctamente."
@@ -432,7 +511,7 @@ def eliminar_segmento(id_segmento):
             conexion.close()
 
 
-def generar_ips_segmento(id_segmento: int):
+def generar_ips_segmento(id_segmento: int, id_usuario_actual):
     """Genera las 254 direcciones IP disponibles para el segmento especificado."""
     conexion = get_connection()
     if conexion is None:
@@ -475,6 +554,7 @@ def generar_ips_segmento(id_segmento: int):
                 nuevas_ips
             )
             conexion.commit()
+            
 
         total_generadas = len(nuevas_ips)
         return {

@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from dependencies.auth_dependency import obtener_usuario_actual
 
 from models.asignacion_model import AsignacionCreate
 from procedures.asignaciones import (
@@ -61,8 +62,8 @@ def listar_segmentos():
 # ==========================================
 
 @router.post("/{id_asignacion}/liberar")
-def liberar(id_asignacion: int):
-    return liberar_asignacion(id_asignacion)
+def liberar(id_asignacion: int, usuario_actual=Depends(obtener_usuario_actual)):
+    return liberar_asignacion(id_asignacion, usuario_actual["id_usuario"])
 
 # ==========================================
 # COMBO IPS DISPONIBLES
@@ -91,9 +92,10 @@ def exportar_pdf():
 # ==========================================
 
 @router.post("/")
-def crear_asignacion(data: AsignacionCreate):
+def crear_asignacion(data: AsignacionCreate, usuario_actual=Depends(obtener_usuario_actual)):
     return asignar_ip(
         data.id_ip,
         data.id_equipo,
-        data.id_usuario
+        data.id_usuario,
+        usuario_actual["id_usuario"]
     )

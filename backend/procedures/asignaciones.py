@@ -11,6 +11,7 @@ from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from procedures.bitacoramodulo import registrar_bitacora
 
 
 # ==========================================
@@ -110,7 +111,7 @@ def obtener_asignaciones(page: int = 1):
 # LIBERAR ASIGNACIÓN DE IP
 # ==========================================
 
-def liberar_asignacion(id_asignacion: int):
+def liberar_asignacion(id_asignacion: int, id_usuario_actual: int):
     """
     Libera una dirección IP asignada.
     """
@@ -124,10 +125,16 @@ def liberar_asignacion(id_asignacion: int):
         # Buscar asignación
         cursor.execute("""
             SELECT
-                id_ip,
-                id_estado
-            FROM tbl_asignacion_ip
-            WHERE id_asignacion = %s
+                ai.id_ip,
+                ai.id_estado,
+                ip.direccion_ip,
+                eq.nombre_equipo
+            FROM tbl_asignacion_ip ai
+            INNER JOIN tbl_ip ip
+            ON ip.id_ip = ai.id_ip
+            INNER JOIN tbl_equipo eq
+            ON eq.id_equipo = ai.id_equipo
+            WHERE ai.id_asignacion = %s
         """, (id_asignacion,))
 
         asignacion = cursor.fetchone()
@@ -162,6 +169,19 @@ def liberar_asignacion(id_asignacion: int):
         """, (asignacion["id_ip"],))
 
         conexion.commit()
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="LIBERAR",
+            tabla_afectada="tbl_asignacion_ip",
+            registro_id=id_asignacion,
+            detalle=(
+            f"Se liberó la dirección IP "
+            f"'{asignacion['direccion_ip']}' "
+            f"del equipo "
+            f"'{asignacion['nombre_equipo']}'."
+            )
+        )
 
         return {
             "mensaje": "Dirección IP liberada correctamente."
@@ -541,7 +561,7 @@ def exportar_asignaciones_pdf():
 # ASIGNAR DIRECCIÓN IP
 # ==========================================
 
-def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int):
+def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int, id_usuario_actual: int):
     """
     Asigna una dirección IP a un equipo.
     """
@@ -559,6 +579,7 @@ def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int):
         cursor.execute("""
             SELECT
                 id_ip,
+                direccion_ip,
                 id_estado
             FROM tbl_ip
             WHERE id_ip = %s
@@ -584,12 +605,14 @@ def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int):
         # ======================================
 
         cursor.execute("""
-            SELECT id_equipo
+            SELECT id_equipo, nombre_equipo
             FROM tbl_equipo
             WHERE id_equipo = %s
         """, (id_equipo,))
 
-        if cursor.fetchone() is None:
+        equipo = cursor.fetchone()
+
+        if not equipo:
             raise HTTPException(
                 status_code=404,
                 detail="El equipo no existe."
@@ -650,6 +673,19 @@ def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int):
         """, (id_ip,))
 
         conexion.commit()
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="ASIGNAR",
+            tabla_afectada="tbl_asignacion_ip",
+            registro_id=cursor.lastrowid,
+            detalle=(
+            f"Se asignó la dirección IP "
+            f"'{ip['direccion_ip']}' "
+            f"al equipo "
+            f"'{equipo['nombre_equipo']}'."
+            )
+        )
 
         return {
             "mensaje": "Dirección IP asignada correctamente."

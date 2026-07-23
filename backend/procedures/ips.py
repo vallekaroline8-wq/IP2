@@ -2,6 +2,7 @@ import re
 
 from fastapi import HTTPException
 from mysql.connector import Error
+from procedures.bitacoramodulo import registrar_bitacora
 
 from database.conexion import get_connection
 
@@ -163,7 +164,7 @@ def obtener_ips(page: int = 1, limit: int = 20, search: str = "", segmento_id: i
             conexion.close()
 
 
-def actualizar_estado_ip(id_ip: int, estado: str):
+def actualizar_estado_ip(id_ip: int, estado: str, id_usuario_actual):
     try:
         id_estado = resolver_id_estado(estado)
     except ValueError as exc:
@@ -177,12 +178,34 @@ def actualizar_estado_ip(id_ip: int, estado: str):
             raise HTTPException(status_code=500, detail="No fue posible conectar a la base de datos")
 
         cursor = conexion.cursor(dictionary=True)
-        cursor.execute("SELECT id_ip FROM tbl_ip WHERE id_ip = %s", (id_ip,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id_ip, direccion_ip, id_estado FROM tbl_ip WHERE id_ip = %s", (id_ip,))
+
+        ip = cursor.fetchone()
+        if not ip:
             raise HTTPException(status_code=404, detail="IP no encontrada")
 
         cursor.execute("UPDATE tbl_ip SET id_estado = %s WHERE id_ip = %s", (id_estado, id_ip))
         conexion.commit()
+
+        if id_estado == 5 and ip["id_estado"] != 5:
+
+            registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="RESERVAR",
+            tabla_afectada="tbl_ip",
+            registro_id=id_ip,
+            detalle=f"Se reservó el estado de la IP '{ip['direccion_ip']}'."
+        )
+
+        elif id_estado == 3 and ip["id_estado"] != 3:
+
+            registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="LIBERAR",
+            tabla_afectada="tbl_ip",
+            registro_id=id_ip,
+            detalle=f"Se liberó la dirección IP '{ip['direccion_ip']}'."
+            )
 
         return {"mensaje": "Estado actualizado correctamente."}
 
