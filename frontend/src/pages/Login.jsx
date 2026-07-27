@@ -39,20 +39,16 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="relative hidden lg:flex flex-1 items-end p-12 overflow-hidden">
+      <div className="relative hidden lg:flex flex-1 items-center justify-center overflow-hidden">
         <img src={BG} alt="Hospital Militar" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-[#062a52]/80" />
-        <div className="relative z-10 text-white max-w-lg">
+        <div className="relative z-10 max-w-xl text-center text-white px-8 mt-[380px]">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur grid place-items-center border border-white/20">
-              <Shield className="w-6 h-6" />
-            </div>
-            <span className="font-heading text-xl font-bold">Hospital Militar</span>
           </div>
-          <h1 className="font-heading text-4xl font-extrabold leading-tight mb-4">
+          <h1 className="font-heading text-4xl font-bold leading-tight mb-5">
             Sistema de Gestión de Direcciones IP
           </h1>
-          <p className="text-white/80 text-lg">
+          <p className="text-white/80 text-sm leading-6 max-w-md mx-auto">
             Administración centralizada de direcciones IP institucionales. Control de segmentos,
             equipos, asignaciones e historial en un solo lugar.
           </p>
