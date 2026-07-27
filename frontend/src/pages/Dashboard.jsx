@@ -101,8 +101,6 @@ export default function Dashboard() {
   const {
     cards,
     pie,
-    ultimas_asignaciones,
-    actividad,
   } = data;
 
   return (
@@ -154,7 +152,7 @@ export default function Dashboard() {
 
       {/* GRAFICOS */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 gap-6 mb-6">
 
         {/* PIE */}
 
@@ -197,79 +195,6 @@ export default function Dashboard() {
           </ResponsiveContainer>
 
         </div>
-
-        {/* BARRAS (eliminado: Secciones) */}
-
-      </div>
-
-      {/* RESUMEN */}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Lista de Secciones eliminada */}
-
-        <div className="bg-card border rounded-lg p-5">
-
-          <h3 className="font-bold mb-4">
-            Últimas Asignaciones
-          </h3>
-
-          {ultimas_asignaciones.length === 0 ? (
-
-            <p className="text-muted-foreground">
-              No existen asignaciones registradas.
-            </p>
-
-          ) : (
-
-            ultimas_asignaciones.map((a, i) => (
-
-              <div key={i}>
-                {a.ip_direccion}
-              </div>
-
-            ))
-
-          )}
-
-        </div>
-
-      </div>
-
-      {/* ACTIVIDAD */}
-
-      <div className="bg-card border rounded-lg p-5 mt-6">
-
-        <h3 className="font-bold mb-4">
-          Actividad Reciente
-        </h3>
-
-        {actividad.length === 0 ? (
-
-          <p className="text-muted-foreground">
-            Sin actividad registrada.
-          </p>
-
-        ) : (
-
-          actividad.map((a, i) => (
-
-            <div
-              key={i}
-              className="flex justify-between border-b py-2"
-            >
-
-              <span>{a.usuario}</span>
-
-              <span>{a.accion}</span>
-
-              <span>{a.modulo}</span>
-
-            </div>
-
-          ))
-
-        )}
 
       </div>
 
