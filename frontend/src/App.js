@@ -44,7 +44,7 @@ function App() {
               <Route
                 path="departamentos"
                 element={
-                  <RequireRole roles={["administrador", "tecnico"]}>
+                  <RequireRole roles={["administrador"]}>
                     <Departamentos />
                   </RequireRole>
                 }
@@ -54,7 +54,14 @@ function App() {
               <Route path="equipos" element={<Equipos />} />
               <Route path="asignaciones" element={<Asignaciones />} />
               <Route path="usuarios" element={<Usuarios />} />
-              <Route path="bitacora" element={<Bitacora />} />
+              <Route
+                path="bitacora"
+                element={
+                  <RequireRole roles={["administrador"]}>
+                    <Bitacora />
+                  </RequireRole>
+                }
+              />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

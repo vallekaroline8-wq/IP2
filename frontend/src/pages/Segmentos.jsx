@@ -117,7 +117,7 @@ export default function Segmentos() {
     <div>
       <PageHeader title="Segmentos de Red" subtitle="Subredes institucionales y generación de direcciones IP" />
       <TableWrap>
-        <Toolbar search={L.search} setSearch={L.setSearch} onAdd={openNew} addLabel="Nuevo Segmento" canAdd={can("administrador", "tecnico")} />
+        <Toolbar search={L.search} setSearch={L.setSearch} onAdd={openNew} addLabel="Nuevo Segmento" canAdd={can("administrador")} />
         {L.loading ? <TableSkeleton cols={5} /> : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -134,13 +134,13 @@ export default function Segmentos() {
                       ) : <span className="text-xs text-amber-600 font-medium">Sin IP generadas</span>}
                     </Td>
                     <Td className="text-right whitespace-nowrap">
-                      {can("administrador", "tecnico") && (
+                      {can("administrador") && (
                         <Button variant="ghost" size="icon" onClick={() => generar(s)} title="Generar IPs Disponibles" data-testid={`gen-${s.id_segmento}`}><Zap className="w-4 h-4 text-amber-600" /></Button>
                       )}
-                      {can("administrador", "tecnico") && s.total_ips > 0 && (
+                      {can("administrador") && s.total_ips > 0 && (
                         <Button variant="ghost" size="icon" onClick={() => limpiar(s)} title="Limpiar IPs del Segmento" data-testid={`clean-${s.id_segmento}`}><RotateCcw className="w-4 h-4 text-orange-600" /></Button>
                       )}
-                      {can("administrador", "tecnico") && <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>}
+                      {can("administrador") && <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>}
                       {can("administrador") && <Button variant="ghost" size="icon" onClick={() => del(s)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
                     </Td>
                   </tr>
