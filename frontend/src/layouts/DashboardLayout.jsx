@@ -40,7 +40,7 @@ const NAV = [
     to: "/departamentos",
     label: "Departamentos",
     icon: Building2,
-    roles: ["administrador", "tecnico"],
+    roles: ["administrador"],
   },
   {
     to: "/segmentos",
@@ -72,7 +72,7 @@ const NAV = [
     to: "/bitacora",
     label: "Bitácora",
     icon: ScrollText,
-    roles: ["administrador", "tecnico"],
+    roles: ["administrador"],
   },
 ];
 
