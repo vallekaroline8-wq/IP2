@@ -11,6 +11,10 @@ class EquipoCreate(BaseModel):
     marca: Optional[str] = Field(default=None, max_length=100)
     modelo: Optional[str] = Field(default=None, max_length=100)
 
+    ubicacion: Optional[str] = Field(default=None, max_length=150)
+    area: Optional[str] = Field(default=None, max_length=100)
+    extension: Optional[str] = Field(default=None, max_length=20)
+
 
 class EquipoUpdate(BaseModel):
     id_tipo: int = Field(..., gt=0)
@@ -20,6 +24,10 @@ class EquipoUpdate(BaseModel):
 
     marca: Optional[str] = Field(default=None, max_length=100)
     modelo: Optional[str] = Field(default=None, max_length=100)
+
+    ubicacion: Optional[str] = Field(default=None, max_length=150)
+    area: Optional[str] = Field(default=None, max_length=100)
+    extension: Optional[str] = Field(default=None, max_length=20)
 
 
 class EstadoEquipo(BaseModel):
