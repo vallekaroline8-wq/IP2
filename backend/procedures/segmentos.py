@@ -127,8 +127,84 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
                 detail="Ya existe un segmento con ese nombre."
             )
 
-        cursor = conexion.cursor()
+        # Validar duplicado por dirección de red + máscara (solo activos)
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE direccion_red = %s
+              AND mascara = %s
+              AND id_estado = 1
+        """, (direccion_red, mascara))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un segmento con esa dirección de red y máscara."
+            )
 
+        # Validar duplicado por gateway (si fue proporcionado) (solo activos)
+        if gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_estado = 1
+            """, (gateway,))
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ya existe un segmento con ese gateway."
+                )
+        # Si existe un registro inactivo con igual nombre/dirección+mascara/gateway, reactivar
+        # Priorizar búsqueda por nombre, luego por direccion+mascara, luego por gateway
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE nombre = %s
+              AND id_estado = 2
+            LIMIT 1
+        """, (nombre,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE direccion_red = %s
+                  AND mascara = %s
+                  AND id_estado = 2
+                LIMIT 1
+            """, (direccion_red, mascara))
+            row = cursor.fetchone()
+
+        if not row and gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_estado = 2
+                LIMIT 1
+            """, (gateway,))
+            row = cursor.fetchone()
+
+        if row:
+            id_reactivar = row["id_segmento"]
+            upd = conexion.cursor()
+            upd.execute("""
+                UPDATE tbl_segmento
+                SET nombre = %s,
+                    direccion_red = %s,
+                    mascara = %s,
+                    gateway = %s,
+                    id_estado = 1
+                WHERE id_segmento = %s
+            """, (nombre, direccion_red, mascara, gateway, id_reactivar))
+            conexion.commit()
+            return {
+                "mensaje": "Segmento reactivado correctamente.",
+                "id_segmento": id_reactivar
+            }
+
+        # Si no hay inactivos a reactivar, insertar nuevo
+        cursor = conexion.cursor()
         consulta_sql = """
             INSERT INTO tbl_segmento
             (
@@ -228,6 +304,36 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
                 status_code=400,
                 detail="Ya existe un segmento con ese nombre."
             )
+
+        # Validar duplicado por dirección de red + máscara (solo activos), excluyendo el segmento actual
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE direccion_red = %s
+              AND mascara = %s
+              AND id_segmento <> %s
+              AND id_estado = 1
+        """, (direccion_red, mascara, id_segmento))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un segmento con esa dirección de red y máscara."
+            )
+
+        # Validar duplicado por gateway (si fue proporcionado) (solo activos), excluyendo el segmento actual
+        if gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_segmento <> %s
+                  AND id_estado = 1
+            """, (gateway, id_segmento))
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ya existe un segmento con ese gateway."
+                )
 
         cursor = conexion.cursor()
 
