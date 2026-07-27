@@ -48,6 +48,9 @@ const empty = {
   modelo: "",
   id_tipo: "",
   id_departamento: "",
+  ubicacion: "",
+  area: "",
+  extension: "",
 };
 
 export default function Equipos() {
@@ -63,6 +66,9 @@ export default function Equipos() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
 
+  const tipoSeleccionado =
+    tipos.find((t) => String(t.id_tipo) === form.id_tipo)?.nombre || "";
+
   const openNew = () => {
     setEditing(null);
     setForm(empty);
@@ -76,8 +82,11 @@ export default function Equipos() {
       nombre_equipo: equipo.nombre_equipo || "",
       marca: equipo.marca || "",
       modelo: equipo.modelo || "",
-      id_tipo: String(equipo.id_tipo),
-      id_departamento: String(equipo.id_departamento),
+      id_tipo: String(equipo.id_tipo || ""),
+      id_departamento: String(equipo.id_departamento || ""),
+      ubicacion: equipo.ubicacion || "",
+      area: equipo.area || "",
+      extension: equipo.extension || "",
     });
 
     setOpen(true);
@@ -92,8 +101,7 @@ export default function Equipos() {
       return fail({
         response: {
           data: {
-            detail:
-              "Nombre, tipo y departamento son obligatorios.",
+            detail: "Nombre, tipo y departamento son obligatorios.",
           },
         },
       });
@@ -107,19 +115,19 @@ export default function Equipos() {
       modelo: form.modelo,
       id_tipo: Number(form.id_tipo),
       id_departamento: Number(form.id_departamento),
+      ...(tipoSeleccionado === "Cámara IP" && { ubicacion: form.ubicacion }),
+      ...(tipoSeleccionado === "Teléfono IP" && {
+        area: form.area,
+        extension: form.extension,
+      }),
     };
 
     try {
       if (editing) {
-        await api.put(
-          `/equipos/${editing.id_equipo}`,
-          payload
-        );
-
+        await api.put(`/equipos/${editing.id_equipo}`, payload);
         ok("Equipo actualizado correctamente.");
       } else {
         await api.post("/equipos", payload);
-
         ok("Equipo creado correctamente.");
       }
 
@@ -134,38 +142,31 @@ export default function Equipos() {
       setSaving(false);
     }
   };
-const exportarExcel = async () => {
-  try {
-    const response = await api.get(
-      "/equipos/export/excel",
-      {
+
+  const exportarExcel = async () => {
+    try {
+      const response = await api.get("/equipos/export/excel", {
         responseType: "blob",
-      }
-    );
+      });
 
-    const url = window.URL.createObjectURL(
-      new Blob([response.data])
-    );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
 
-    const link = document.createElement("a");
+      link.href = url;
+      link.download = "equipos.xlsx";
 
-    link.href = url;
-    link.download = "equipos.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-    document.body.appendChild(link);
+      window.URL.revokeObjectURL(url);
 
-    link.click();
+      ok("Archivo Excel descargado.");
+    } catch (e) {
+      fail(e);
+    }
+  };
 
-    document.body.removeChild(link);
-
-    window.URL.revokeObjectURL(url);
-
-    ok("Archivo Excel descargado.");
-
-  } catch (e) {
-    fail(e);
-  }
-};
   const del = async (equipo) => {
     const confirmar = await confirmDelete(
       `Se eliminará el equipo "${equipo.nombre_equipo}".`
@@ -175,9 +176,7 @@ const exportarExcel = async () => {
 
     try {
       await api.delete(`/equipos/${equipo.id_equipo}`);
-
       ok("Equipo eliminado correctamente.");
-
       L.refetch();
     } catch (e) {
       fail(e);
@@ -185,16 +184,16 @@ const exportarExcel = async () => {
   };
 
   return (
-        <div>
+    <div>
       <PageHeader
         title="Equipos"
         subtitle="Administración de equipos"
         exportResource="equipos"
+        onExport={exportarExcel}
       />
 
       <TableWrap>
-
-  <Toolbar
+        <Toolbar
           search={L.search}
           setSearch={L.setSearch}
           onAdd={openNew}
@@ -203,7 +202,7 @@ const exportarExcel = async () => {
         />
 
         {L.loading ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={7} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -228,26 +227,11 @@ const exportarExcel = async () => {
                       key={e.id_equipo}
                       className="hover:bg-accent/40 transition-colors"
                     >
-                      <Td className="font-medium">
-                        {e.nombre_equipo}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.tipo}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.marca || "-"}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.modelo || "-"}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.departamento}
-                      </Td>
-
+                      <Td className="font-medium">{e.nombre_equipo}</Td>
+                      <Td className="text-muted-foreground">{e.tipo}</Td>
+                      <Td className="text-muted-foreground">{e.marca || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.modelo || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.departamento}</Td>
                       <Td>{e.estado}</Td>
 
                       <Td className="text-right">
@@ -287,78 +271,26 @@ const exportarExcel = async () => {
         />
       </TableWrap>
 
+      {/* Modal / Diálogo para Crear y Editar */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
-
           <DialogHeader>
             <DialogTitle>
               {editing ? "Editar Equipo" : "Nuevo Equipo"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-3 py-2">
-
+          <div className="grid grid-cols-2 gap-4 py-2">
+            {/* Tipo */}
             <div className="col-span-2">
-              <Label>Nombre</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.nombre_equipo}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    nombre_equipo: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Marca</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.marca}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    marca: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Modelo</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.modelo}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    modelo: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Tipo</Label>
-
+              <Label>Tipo de dispositivo</Label>
               <Select
                 value={form.id_tipo}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    id_tipo: v,
-                  })
-                }
+                onValueChange={(v) => setForm({ ...form, id_tipo: v })}
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Seleccione" />
+                  <SelectValue placeholder="Seleccione un tipo" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {tipos.map((t) => (
                     <SelectItem
@@ -372,22 +304,54 @@ const exportarExcel = async () => {
               </Select>
             </div>
 
-            <div>
-              <Label>Departamento</Label>
+            {/* Nombre */}
+            <div className="col-span-2">
+              <Label>Nombre del equipo</Label>
+              <Input
+                className="mt-1.5"
+                value={form.nombre_equipo}
+                onChange={(e) =>
+                  setForm({ ...form, nombre_equipo: e.target.value })
+                }
+              />
+            </div>
 
+            {/* Marca */}
+            <div>
+              <Label>Marca</Label>
+              <Input
+                className="mt-1.5"
+                value={form.marca}
+                onChange={(e) =>
+                  setForm({ ...form, marca: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Modelo */}
+            <div>
+              <Label>Modelo</Label>
+              <Input
+                className="mt-1.5"
+                value={form.modelo}
+                onChange={(e) =>
+                  setForm({ ...form, modelo: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Departamento */}
+            <div className="col-span-2">
+              <Label>Departamento</Label>
               <Select
                 value={form.id_departamento}
                 onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    id_departamento: v,
-                  })
+                  setForm({ ...form, id_departamento: v })
                 }
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Seleccione" />
+                  <SelectValue placeholder="Seleccione un departamento" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {departamentos.map((d) => (
                     <SelectItem
@@ -401,34 +365,62 @@ const exportarExcel = async () => {
               </Select>
             </div>
 
+            {/* Campos dinámicos */}
+            {tipoSeleccionado === "Cámara IP" && (
+              <div className="col-span-2">
+                <Label>Ubicación</Label>
+                <Input
+                  className="mt-1.5"
+                  placeholder="Ej. Pasillo Principal"
+                  value={form.ubicacion}
+                  onChange={(e) =>
+                    setForm({ ...form, ubicacion: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {tipoSeleccionado === "Teléfono IP" && (
+              <>
+                <div>
+                  <Label>Área</Label>
+                  <Input
+                    className="mt-1.5"
+                    placeholder="Ej. Emergencias"
+                    value={form.area}
+                    onChange={(e) =>
+                      setForm({ ...form, area: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label>Extensión</Label>
+                  <Input
+                    className="mt-1.5"
+                    placeholder="Ej. 2104"
+                    value={form.extension}
+                    onChange={(e) =>
+                      setForm({ ...form, extension: e.target.value })
+                    }
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>
-
-            <Button
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
 
-            <Button
-              onClick={save}
-              disabled={saving}
-            >
-              {saving && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Guardar
             </Button>
-
           </DialogFooter>
-
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
-
