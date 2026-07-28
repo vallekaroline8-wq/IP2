@@ -98,106 +98,94 @@ export default function Dashboard() {
     );
   }
 
-  const {
-    cards,
-    pie,
-  } = data;
+  const { cards = {}, pie = [] } = data;
 
   return (
     <div>
-
       <PageHeader
         title="Dashboard"
         subtitle="Resumen general del sistema"
       />
 
       {/* TARJETAS */}
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {cardDefs.map((c) => {
+          const Icon = c.icon;
+          return (
+            <div
+              key={c.key}
+              className="bg-card border rounded-xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {c.label}
+                  </p>
 
-        {cardDefs.map((c) => (
+                  <p className="text-4xl font-bold mt-3 tracking-tight">
+                    {cards[c.key] ?? 0}
+                  </p>
+                </div>
 
-          <div
-            key={c.key}
-            className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow"
-          >
-
-            <div className="flex justify-between items-start">
-
-              <div>
-
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {c.label}
-                </p>
-
-                <p className="text-3xl font-bold mt-2">
-                  {cards[c.key] ?? 0}
-                </p>
-
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${c.color}`}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
               </div>
-
-              <div
-                className={`w-10 h-10 rounded-lg grid place-items-center ${c.color}`}
-              >
-                <c.icon className="w-5 h-5" />
-              </div>
-
             </div>
-
-          </div>
-
-        ))}
-
+          );
+        })}
       </div>
 
-      {/* GRAFICOS */}
-
+      {/* GRÁFICOS */}
       <div className="grid grid-cols-1 gap-6 mb-6">
+        {/* PIE CHART */}
+        <div className="bg-card border rounded-xl p-6 shadow-sm">
+          <h3 className="font-bold mb-4">Estado de Direcciones IP</h3>
 
-        {/* PIE */}
-
-        <div className="bg-card border rounded-lg p-5">
-
-          <h3 className="font-bold mb-4">
-            Estado de Direcciones IP
-          </h3>
-
-          <ResponsiveContainer width="100%" height={280}>
-
+          <ResponsiveContainer width="100%" height={420}>
             <PieChart>
-
               <Pie
                 data={pie}
                 dataKey="cantidad"
                 nameKey="nombre"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={2}
+                innerRadius={95}
+                outerRadius={145}
+                paddingAngle={1}
+                stroke="none"
+                isAnimationActive
+                animationDuration={1200}
+                animationEasing="ease-out"
               >
-
-                {pie.map((_, index) => (
-
+                {(pie ?? []).map((_, index) => (
                   <Cell
                     key={index}
                     fill={COLORS[index % COLORS.length]}
                   />
-
                 ))}
-
               </Pie>
 
-              <Tooltip />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: "12px",
+                  border: "none",
+                  boxShadow: "0 8px 20px rgba(0,0,0,.15)",
+                }}
+              />
 
-              <Legend />
-
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                wrapperStyle={{
+                  paddingTop: 20,
+                  fontSize: 14,
+                }}
+              />
             </PieChart>
-
           </ResponsiveContainer>
-
         </div>
-
       </div>
-
     </div>
   );
 }
