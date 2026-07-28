@@ -245,7 +245,7 @@ export default function Equipos() {
                           </Button>
                         )}
 
-                        {can("administrador") && (
+                        {can("administrador", "tecnico") && (
                           <Button
                             variant="ghost"
                             size="icon"
