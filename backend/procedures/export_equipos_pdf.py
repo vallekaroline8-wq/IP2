@@ -73,20 +73,19 @@ def exportar_equipos_pdf():
 
         cursor.execute("""
             SELECT
-                e.id_equipo,
                 e.nombre_equipo,
                 td.nombre AS tipo,
-                d.nombre AS departamento,
                 e.marca,
                 e.modelo,
-                est.nombre AS estado
+                d.nombre AS departamento,
+                e.ubicacion,
+                e.area,
+                e.extension
             FROM tbl_equipo e
             INNER JOIN tbl_tipo_dispositivo td
                 ON td.id_tipo = e.id_tipo
             INNER JOIN tbl_departamento d
                 ON d.id_departamento = e.id_departamento
-            INNER JOIN tbl_estado est
-                ON est.id_estado = e.id_estado
             WHERE e.id_estado <> 6
             ORDER BY e.nombre_equipo
         """)
@@ -172,13 +171,14 @@ def exportar_equipos_pdf():
 
         # --- CONSTRUCCIÓN DE LA TABLA ---
         datos = [[
-            Paragraph("ID", estilo_encabezado),
-            Paragraph("Equipo", estilo_encabezado),
+            Paragraph("Nombre", estilo_encabezado),
             Paragraph("Tipo", estilo_encabezado),
-            Paragraph("Departamento", estilo_encabezado),
             Paragraph("Marca", estilo_encabezado),
             Paragraph("Modelo", estilo_encabezado),
-            Paragraph("Estado", estilo_encabezado)
+            Paragraph("Departamento", estilo_encabezado),
+            Paragraph("Ubicación", estilo_encabezado),
+            Paragraph("Área", estilo_encabezado),
+            Paragraph("Extensión", estilo_encabezado)
         ]]
 
         estilos_tabla = [
@@ -191,44 +191,32 @@ def exportar_equipos_pdf():
             ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F9F9F9")),
         ]
 
-        # Cargar datos y aplicar color dinámico al estado
-        for idx, equipo in enumerate(equipos, start=1):
-            estado_texto = str(equipo["estado"] or "").strip().upper()
-
-            if estado_texto == "ACTIVO":
-                color_estado = colors.HexColor("#D4EDDA")  # Verde claro
-            elif estado_texto == "INACTIVO":
-                color_estado = colors.HexColor("#F8D7DA")  # Rojo claro
-            elif estado_texto == "MANTENIMIENTO":
-                color_estado = colors.HexColor("#FFF3CD")  # Amarillo claro
-            else:
-                color_estado = colors.white
-
-            estilos_tabla.append(
-                ("BACKGROUND", (6, idx), (6, idx), color_estado)
-            )
-
+        # Cargar datos
+        for equipo in equipos:
             datos.append([
-                Paragraph(str(equipo["id_equipo"]), estilo_celda),
                 Paragraph(str(equipo["nombre_equipo"] or ""), estilo_celda),
                 Paragraph(str(equipo["tipo"] or ""), estilo_celda),
-                Paragraph(str(equipo["departamento"] or ""), estilo_celda),
                 Paragraph(str(equipo["marca"] or "-"), estilo_celda),
                 Paragraph(str(equipo["modelo"] or "-"), estilo_celda),
-                Paragraph(estado_texto, estilo_celda)
+                Paragraph(str(equipo["departamento"] or ""), estilo_celda),
+                Paragraph(str(equipo["ubicacion"] or "-"), estilo_celda),
+                Paragraph(str(equipo["area"] or "-"), estilo_celda),
+                Paragraph(str(equipo["extension"] or "-"), estilo_celda),
             ])
 
+        # Ancho total configurable para la hoja en horizontal (aprox. 24.9 cm utilizables)
         tabla = Table(
             datos,
             repeatRows=1,  # Repite el encabezado si se extiende a más páginas
             colWidths=[
-                1.3 * cm,  # ID
-                5.1 * cm,  # Equipo
-                3.8 * cm,  # Tipo
-                4.7 * cm,  # Departamento
-                3.3 * cm,  # Marca
-                3.3 * cm,  # Modelo
-                3.4 * cm   # Estado
+                4.3 * cm,  # Nombre
+                2.7 * cm,  # Tipo
+                2.3 * cm,  # Marca
+                3.2 * cm,  # Modelo
+                4.2 * cm,  # Departamento
+                3.7 * cm,  # Ubicación
+                2.2 * cm,  # Área
+                2.3 * cm,  # Extensión
             ]
         )
         tabla.setStyle(TableStyle(estilos_tabla))

@@ -66,8 +66,23 @@ export default function Equipos() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
 
+  // Filtros
+  const [tipoFiltro, setTipoFiltro] = useState("todos");
+  const [departamentoFiltro, setDepartamentoFiltro] = useState("todos");
+
   const tipoSeleccionado =
     tipos.find((t) => String(t.id_tipo) === form.id_tipo)?.nombre || "";
+
+  // Equipos filtrados correctamente
+  const equiposFiltrados = L.items.filter((e) => {
+    const matchTipo =
+      tipoFiltro === "todos" || String(e.id_tipo) === tipoFiltro;
+    const matchDep =
+      departamentoFiltro === "todos" ||
+      String(e.id_departamento) === departamentoFiltro;
+
+    return matchTipo && matchDep;
+  });
 
   const openNew = () => {
     setEditing(null);
@@ -193,16 +208,73 @@ export default function Equipos() {
       />
 
       <TableWrap>
-        <Toolbar
-          search={L.search}
-          setSearch={L.setSearch}
-          onAdd={openNew}
-          addLabel="Nuevo Equipo"
-          canAdd={can("administrador", "tecnico")}
-        />
+       <Toolbar
+  showSearch={false}
+  showBorder={false}
+  onAdd={openNew}
+  addLabel="Nuevo Equipo"
+  canAdd={can("administrador", "tecnico")}
+/>
+
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4 px-6 py-2.5 border-b border-border">
+          {/* Tipo */}
+          <div className="w-56">
+            <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo de equipo" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los tipos</SelectItem>
+
+                {tipos.map((t) => (
+                  <SelectItem key={t.id_tipo} value={String(t.id_tipo)}>
+                    {t.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Departamento */}
+          <div className="w-64">
+            <Select
+              value={departamentoFiltro}
+              onValueChange={setDepartamentoFiltro}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por departamento" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los departamentos</SelectItem>
+
+                {departamentos.map((d) => (
+                  <SelectItem
+                    key={d.id_departamento}
+                    value={String(d.id_departamento)}
+                  >
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTipoFiltro("todos");
+              setDepartamentoFiltro("todos");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
 
         {L.loading ? (
-          <TableSkeleton cols={7} />
+          <TableSkeleton cols={9} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -213,16 +285,18 @@ export default function Equipos() {
                   <Th>Marca</Th>
                   <Th>Modelo</Th>
                   <Th>Departamento</Th>
-                  <Th>Estado</Th>
+                  <Th>Ubicación</Th>
+                  <Th>Área</Th>
+                  <Th>Extensión</Th>
                   <Th className="text-right">Acciones</Th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-border">
-                {L.items.length === 0 ? (
-                  <EmptyRow cols={7} />
+                {equiposFiltrados.length === 0 ? (
+                  <EmptyRow cols={9} />
                 ) : (
-                  L.items.map((e) => (
+                  equiposFiltrados.map((e) => (
                     <tr
                       key={e.id_equipo}
                       className="hover:bg-accent/40 transition-colors"
@@ -232,28 +306,32 @@ export default function Equipos() {
                       <Td className="text-muted-foreground">{e.marca || "-"}</Td>
                       <Td className="text-muted-foreground">{e.modelo || "-"}</Td>
                       <Td className="text-muted-foreground">{e.departamento}</Td>
-                      <Td>{e.estado}</Td>
+                      <Td className="text-muted-foreground">{e.ubicacion || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.area || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.extension || "-"}</Td>
 
                       <Td className="text-right">
-                        {can("administrador", "tecnico") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(e)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {can("administrador", "tecnico") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(e)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
 
-                        {can("administrador") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => del(e)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        )}
+                          {can("administrador") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => del(e)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </Td>
                     </tr>
                   ))

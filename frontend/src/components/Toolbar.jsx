@@ -2,20 +2,33 @@ import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export const Toolbar = ({ search = "", setSearch = () => {}, onAdd, addLabel = "Nuevo", canAdd = true, children }) => (
-  <div className="flex flex-col sm:flex-row gap-3 p-4 border-b border-border">
-    <div className="relative flex-1 max-w-sm">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar…" className="pl-9" data-testid="search-input" />
-    </div>
-    <div className="flex items-center gap-2 sm:ml-auto">
-      {children}
-      {canAdd && onAdd && (
-        <Button size="sm" onClick={onAdd} data-testid="add-btn">
-          <Plus className="w-4 h-4 mr-1.5" /> {addLabel}
-        </Button>
-      )}
-    </div>
+export const Toolbar = ({
+  search = "",
+  setSearch = () => {},
+  onAdd,
+  addLabel = "Nuevo",
+  canAdd = true,
+  children,
+  showSearch = true,
+  showBorder = true,
+}) => (
+  <div
+  className={`flex flex-col sm:flex-row gap-3 px-6 py-2 ${
+    showBorder ? "border-b border-border" : ""
+  }`}
+>
+    {showSearch && (
+  <div className="relative flex-1 max-w-sm">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <Input
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Buscar..."
+      className="pl-9"
+      data-testid="search-input"
+    />
+  </div>
+)}
   </div>
 );
 

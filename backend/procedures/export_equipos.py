@@ -30,10 +30,11 @@ from database.conexion import get_connection
 
 
 def exportar_equipos_excel():
-    conexion = get_connection()
+    conexion = None
     cursor = None
 
     try:
+        conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
 
         cursor.execute("""
@@ -43,14 +44,14 @@ def exportar_equipos_excel():
                 e.marca,
                 e.modelo,
                 d.nombre AS departamento,
-                est.nombre AS estado
+                e.ubicacion,
+                e.area,
+                e.extension
             FROM tbl_equipo e
             INNER JOIN tbl_tipo_dispositivo td
                 ON td.id_tipo = e.id_tipo
             INNER JOIN tbl_departamento d
                 ON d.id_departamento = e.id_departamento
-            INNER JOIN tbl_estado est
-                ON est.id_estado = e.id_estado
             WHERE e.id_estado <> 6
             ORDER BY e.nombre_equipo ASC
         """)
@@ -93,10 +94,10 @@ def exportar_equipos_excel():
 
             # Posicionamiento preciso dentro de la celda combinada
             marker = AnchorMarker(
-                col=0,                     # Columna A
-                row=0,                     # Fila 1
-                colOff=pixels_to_EMU(35),  # Desplazamiento horizontal
-                rowOff=pixels_to_EMU(8)    # Desplazamiento vertical
+                col=0,                      # Columna A
+                row=0,                      # Fila 1
+                colOff=pixels_to_EMU(35),   # Desplazamiento horizontal
+                rowOff=pixels_to_EMU(8)     # Desplazamiento vertical
             )
 
             imagen.anchor = OneCellAnchor(
@@ -109,24 +110,31 @@ def exportar_equipos_excel():
 
             ws.add_image(imagen)
 
-        # Encabezados del reporte (Bloque Azul B2:F4)
-        ws.merge_cells("B2:F2")
+        # ---------------- ENCABEZADO DEL REPORTE ----------------
+        fill_azul = PatternFill("solid", fgColor=azul)
+
+        # Pintar el banner azul de la columna B a la H (Columnas 2 a 8)
+        for fila in range(2, 5):
+            for columna in range(2, 9):  # B -> H
+                ws.cell(row=fila, column=columna).fill = fill_azul
+
+        # Título principal
+        ws.merge_cells("B2:H2")
         ws["B2"] = "HOSPITAL MILITAR"
         ws["B2"].font = Font(bold=True, size=16, color=blanco)
         ws["B2"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B2"].fill = PatternFill("solid", fgColor=azul)
 
-        ws.merge_cells("B3:F3")
+        # Subtítulo
+        ws.merge_cells("B3:H3")
         ws["B3"] = "SISTEMA SIGIP"
         ws["B3"].font = Font(bold=True, size=12, color=blanco)
         ws["B3"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B3"].fill = PatternFill("solid", fgColor=azul)
 
-        ws.merge_cells("B4:F4")
+        # Nombre del reporte
+        ws.merge_cells("B4:H4")
         ws["B4"] = "REPORTE GENERAL DE EQUIPOS"
         ws["B4"].font = Font(bold=True, size=11, color=blanco)
         ws["B4"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B4"].fill = PatternFill("solid", fgColor=azul)
 
         # --- METADATOS DEL REPORTE ---
         fecha = datetime.now()
@@ -162,7 +170,9 @@ def exportar_equipos_excel():
             "Marca",
             "Modelo",
             "Departamento",
-            "Estado"
+            "Ubicación",
+            "Área",
+            "Extensión"
         ]
 
         fila_inicio = 10
@@ -191,9 +201,11 @@ def exportar_equipos_excel():
             ws.cell(fila, 3).value = equipo["marca"]
             ws.cell(fila, 4).value = equipo["modelo"]
             ws.cell(fila, 5).value = equipo["departamento"]
-            ws.cell(fila, 6).value = equipo["estado"]
+            ws.cell(fila, 6).value = equipo["ubicacion"]
+            ws.cell(fila, 7).value = equipo["area"]
+            ws.cell(fila, 8).value = equipo["extension"]
 
-            for columna in range(1, 7):
+            for columna in range(1, 9):
                 celda = ws.cell(fila, columna)
                 celda.border = borde
                 celda.alignment = Alignment(vertical="center")
@@ -202,32 +214,11 @@ def exportar_equipos_excel():
 
         ultima_fila = max(fila - 1, fila_inicio)
 
-        # Formato de semáforo por Estado
-        verde = PatternFill(fill_type="solid", fgColor="C6EFCE")
-        amarillo = PatternFill(fill_type="solid", fgColor="FFF2CC")
-        rojo = PatternFill(fill_type="solid", fgColor="F4CCCC")
-
-        for fila_actual in range(fila_inicio + 1, ultima_fila + 1):
-            celda_estado = ws.cell(fila_actual, 6)
-            estado = celda_estado.value
-
-            if estado is None:
-                continue
-
-            estado_str = str(estado).upper()
-
-            if "ACT" in estado_str:
-                celda_estado.fill = verde
-            elif "MANT" in estado_str:
-                celda_estado.fill = amarillo
-            elif "BAJA" in estado_str:
-                celda_estado.fill = rojo
-
-        # Crear tabla oficial de Excel sin sobrescribir el semáforo
+        # Crear tabla oficial de Excel
         if datos:
             tabla = Table(
                 displayName="TablaEquipos",
-                ref=f"A{fila_inicio}:F{ultima_fila}"
+                ref=f"A{fila_inicio}:H{ultima_fila}"
             )
             estilo = TableStyleInfo(
                 name="TableStyleLight1",
@@ -242,7 +233,7 @@ def exportar_equipos_excel():
         ws.freeze_panes = f"A{fila_inicio + 1}"
 
         # Ajuste de ancho de columnas
-        for columna in range(1, 7):
+        for columna in range(1, 9):
             letra = get_column_letter(columna)
             longitud = 0
             for fila_excel in range(1, ultima_fila + 1):
@@ -258,7 +249,7 @@ def exportar_equipos_excel():
             start_row=fila_resumen,
             start_column=1,
             end_row=fila_resumen,
-            end_column=6
+            end_column=8
         )
 
         celda_resumen = ws.cell(row=fila_resumen, column=1)
@@ -302,7 +293,7 @@ def exportar_equipos_excel():
         )
 
     finally:
+        if cursor:
+            cursor.close()
         if conexion and conexion.is_connected():
-            if cursor:
-                cursor.close()
             conexion.close()
