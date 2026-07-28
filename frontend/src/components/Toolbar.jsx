@@ -13,22 +13,35 @@ export const Toolbar = ({
   showBorder = true,
 }) => (
   <div
-  className={`flex flex-col sm:flex-row gap-3 px-6 py-2 ${
-    showBorder ? "border-b border-border" : ""
-  }`}
->
+    className={`flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-2 ${
+      showBorder ? "border-b border-border" : ""
+    }`}
+  >
+    {/* Buscador */}
     {showSearch && (
-  <div className="relative flex-1 max-w-sm">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-    <Input
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      placeholder="Buscar..."
-      className="pl-9"
-      data-testid="search-input"
-    />
-  </div>
-)}
+      <div className="relative flex-1 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar..."
+          className="pl-9"
+          data-testid="search-input"
+        />
+      </div>
+    )}
+
+    {/* Controles del lado derecho */}
+    <div className="flex items-center gap-2 ml-auto">
+      {children}
+
+      {canAdd && (
+        <Button onClick={onAdd}>
+          <Plus className="w-4 h-4 mr-2" />
+          {addLabel}
+        </Button>
+      )}
+    </div>
   </div>
 );
 
@@ -39,13 +52,26 @@ export const TableWrap = ({ children }) => (
 );
 
 export const Th = ({ children, className = "" }) => (
-  <th className={`text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${className}`}>{children}</th>
+  <th
+    className={`text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${className}`}
+  >
+    {children}
+  </th>
 );
 
 export const Td = ({ children, className = "" }) => (
-  <td className={`px-4 py-3 text-sm ${className}`}>{children}</td>
+  <td className={`px-4 py-3 text-sm ${className}`}>
+    {children}
+  </td>
 );
 
 export const EmptyRow = ({ cols, text = "No hay registros" }) => (
-  <tr><td colSpan={cols} className="px-4 py-12 text-center text-muted-foreground text-sm">{text}</td></tr>
+  <tr>
+    <td
+      colSpan={cols}
+      className="px-4 py-12 text-center text-muted-foreground text-sm"
+    >
+      {text}
+    </td>
+  </tr>
 );
