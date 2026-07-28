@@ -1,3 +1,4 @@
+import re
 from fastapi import HTTPException
 from mysql.connector import Error
 from procedures.bitacoramodulo import registrar_bitacora
@@ -5,9 +6,51 @@ from procedures.bitacoramodulo import registrar_bitacora
 from database.conexion import get_connection
 
 
-def obtener_departamentos():
+def validar_nombre_departamento(nombre: str) -> str:
+    if not nombre or not nombre.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del departamento no puede estar vacío ni contener solo espacios."
+        )
+
+    nombre_limpio = nombre.strip()
+
+    if len(nombre_limpio) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del departamento debe tener al menos 3 caracteres."
+        )
+
+    if len(nombre_limpio) > 50:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del departamento no puede exceder los 50 caracteres."
+        )
+
+    if not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s-]+$", nombre):
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre solo debe contener letras, espacios y guiones (-). No se permiten números ni caracteres especiales."
+        )
+
+    if re.search(r"^[-]|[-]$", nombre_limpio):
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre no puede comenzar ni terminar con un guión."
+        )
+
+    if re.search(r"--|\s\s", nombre):
+        raise HTTPException(
+            status_code=400,
+            detail="No se permiten guiones o espacios consecutivos."
+        )
+
+    return nombre_limpio
+
+
+def obtener_departamentos(search: str = ""):
     """
-    Obtiene únicamente los departamentos activos.
+    Obtiene únicamente los departamentos activos, con soporte para búsqueda.
     """
 
     conexion = get_connection()
@@ -21,10 +64,12 @@ def obtener_departamentos():
                 nombre
             FROM tbl_departamento
             WHERE id_estado = 1
+              AND nombre LIKE %s
             ORDER BY nombre ASC
         """
 
-        cursor.execute(consulta_sql)
+        termino_busqueda = f"%{search}%"
+        cursor.execute(consulta_sql, (termino_busqueda,))
 
         return cursor.fetchall()
 
@@ -45,13 +90,7 @@ def crear_departamento(nombre, id_usuario_actual):
     Crea un nuevo departamento.
     """
 
-    nombre = nombre.strip()
-
-    if not nombre:
-        raise HTTPException(
-            status_code=400,
-            detail="El nombre del departamento es obligatorio."
-        )
+    nombre = validar_nombre_departamento(nombre)
 
     conexion = get_connection()
 
@@ -129,13 +168,7 @@ def actualizar_departamento(id_departamento, nombre, id_usuario_actual):
     Actualiza el nombre de un departamento.
     """
 
-    nombre = nombre.strip()
-
-    if not nombre:
-        raise HTTPException(
-            status_code=400,
-            detail="El nombre del departamento es obligatorio."
-        )
+    nombre = validar_nombre_departamento(nombre)
 
     conexion = get_connection()
 
