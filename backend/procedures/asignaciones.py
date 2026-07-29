@@ -672,6 +672,7 @@ def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int, id_usuario_actual: i
 # ======================================
 # IMPRIMIR EXEL
 # ======================================
+
 def exportar_asignaciones_excel():
     conexion = None
     cursor = None
@@ -729,14 +730,14 @@ def exportar_asignaciones_excel():
 
         if logo.exists():
             imagen = Image(str(logo))
-            imagen.width = 180
-            imagen.height = 180
+            imagen.width = 100
+            imagen.height = 100
 
             marker = AnchorMarker(
                 col=0,
                 row=0,
-                colOff=pixels_to_EMU(35),
-                rowOff=pixels_to_EMU(8)
+                colOff=pixels_to_EMU(16),
+                rowOff=pixels_to_EMU(18)
             )
 
             imagen.anchor = OneCellAnchor(
