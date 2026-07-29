@@ -1,17 +1,101 @@
 from io import BytesIO
+from pathlib import Path
 from datetime import datetime
+import os
 
 from database.conexion import get_connection
+from procedures.bitacoramodulo import registrar_bitacora
+
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+
 from mysql.connector import Error
+
+# ==========================
+# OPENPYXL
+# ==========================
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import (
+    Font,
+    PatternFill,
+    Alignment,
+    Border,
+    Side
+)
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.units import pixels_to_EMU
+from openpyxl.drawing.image import Image
+from openpyxl.drawing.spreadsheet_drawing import (
+    AnchorMarker,
+    OneCellAnchor,
+    XDRPositiveSize2D
+)
+from openpyxl.worksheet.table import Table as ExcelTable, TableStyleInfo
+from openpyxl.worksheet.page import PageMargins
+
+# ==========================
+# REPORTLAB
+# ==========================
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
-from procedures.bitacoramodulo import registrar_bitacora
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table as PDFTable,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    Image as RLImage
+)
+
+
+# ==========================================
+# CANVAS PERSONALIZADO PARA NUMERACIÓN PDF
+# ==========================================
+
+class NumberedCanvas(canvas.Canvas):
+    """
+    Canvas personalizado para calcular el total de páginas y dibujar
+    el pie de página (con numeración dinámicamente) en dos pasadas.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_decorations(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_page_decorations(self, page_count):
+        self.saveState()
+        self.setFont("Helvetica", 8)
+        self.setFillColor(colors.HexColor("#555555"))
+
+        # Pie de página (Izquierda: Nombre del Hospital, Derecha: Páginas)
+        fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+        texto_izq = f"Hospital Militar — Generado: {fecha_actual}"
+        texto_der = f"Página {self._pageNumber} de {page_count}"
+
+        self.drawString(1.5 * cm, 0.8 * cm, texto_izq)
+        self.drawRightString(26.4 * cm, 0.8 * cm, texto_der)
+
+        # Línea divisoria inferior
+        self.setStrokeColor(colors.HexColor("#CCCCCC"))
+        self.setLineWidth(0.5)
+        self.line(1.5 * cm, 1.2 * cm, 26.4 * cm, 1.2 * cm)
+
+        self.restoreState()
 
 
 # ==========================================
@@ -310,254 +394,6 @@ def obtener_ips_disponibles(id_segmento):
             conexion.close()
 
 # ==========================================
-# EXPORTAR ASIGNACIONES A EXCEL
-# ==========================================
-
-def exportar_asignaciones_excel():
-    conexion = get_connection()
-    cursor = None
-
-    try:
-        cursor = conexion.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT
-                ai.id_asignacion AS id,
-                ip.direccion_ip AS direccion_ip,
-                e.nombre_equipo AS equipo_nombre,
-                ai.fecha_asignacion,
-                est.nombre AS estado
-            FROM tbl_asignacion_ip ai
-            INNER JOIN tbl_ip ip
-                ON ai.id_ip = ip.id_ip
-            INNER JOIN tbl_equipo e
-                ON ai.id_equipo = e.id_equipo
-            INNER JOIN tbl_estado est
-                ON ai.id_estado = est.id_estado
-            WHERE ai.id_estado = 4
-            ORDER BY ai.fecha_asignacion DESC
-        """)
-
-        datos = cursor.fetchall()
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Asignaciones"
-        ws.sheet_view.showGridLines = False
-
-        title_cell = ws.cell(row=1, column=1, value="Reporte de Asignaciones de IP")
-        ws.merge_cells("A1:E1")
-        title_cell.font = Font(bold=True, size=14, color="FFFFFF")
-        title_cell.alignment = Alignment(horizontal="center", vertical="center")
-        title_cell.fill = PatternFill("solid", fgColor="0A4B8F")
-        ws.row_dimensions[1].height = 28
-
-        subtitle_cell = ws.cell(row=2, column=1, value=f"Generado el {datetime.now():%d/%m/%Y %H:%M:%S}")
-        ws.merge_cells("A2:E2")
-        subtitle_cell.font = Font(size=10, italic=True, color="1F2937")
-        subtitle_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[2].height = 20
-
-        encabezados = [
-            "ID Asignación",
-            "Dirección IP",
-            "Equipo",
-            "Fecha Asignación",
-            "Estado"
-        ]
-
-        header_fill = PatternFill("solid", fgColor="D9E4F3")
-        border = Border(
-            left=Side(style="thin", color="BFC9D9"),
-            right=Side(style="thin", color="BFC9D9"),
-            top=Side(style="thin", color="BFC9D9"),
-            bottom=Side(style="thin", color="BFC9D9")
-        )
-
-        for columna, texto in enumerate(encabezados, start=1):
-            celda = ws.cell(row=4, column=columna, value=texto)
-            celda.font = Font(bold=True, color="0A4B8F")
-            celda.fill = header_fill
-            celda.alignment = Alignment(horizontal="center", vertical="center")
-            celda.border = border
-
-        fila = 5
-        for index, item in enumerate(datos, start=1):
-            fila_fill = PatternFill("solid", fgColor="F3F6FB") if index % 2 == 0 else None
-
-            ws.cell(row=fila, column=1, value=item["id"]).alignment = Alignment(vertical="center")
-            ws.cell(row=fila, column=2, value=item["direccion_ip"]).alignment = Alignment(vertical="center")
-            ws.cell(row=fila, column=3, value=item["equipo_nombre"]).alignment = Alignment(vertical="center")
-            ws.cell(
-                row=fila,
-                column=4,
-                value=item["fecha_asignacion"].strftime("%Y-%m-%d %H:%M:%S") if item["fecha_asignacion"] else ""
-            ).alignment = Alignment(vertical="center")
-            ws.cell(row=fila, column=5, value=item["estado"]).alignment = Alignment(vertical="center")
-
-            for columna in range(1, 6):
-                cell = ws.cell(row=fila, column=columna)
-                cell.border = border
-                if fila_fill is not None:
-                    cell.fill = fila_fill
-
-            fila += 1
-
-        widths = [18, 22, 32, 24, 18]
-        for columna, ancho_col in enumerate(widths, start=1):
-            ws.column_dimensions[get_column_letter(columna)].width = ancho_col
-
-        ws.freeze_panes = "A5"
-
-        archivo = BytesIO()
-        wb.save(archivo)
-        archivo.seek(0)
-
-        return StreamingResponse(
-            archivo,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": "attachment; filename=Reporte_Asignaciones_SIGIP.xlsx"
-            }
-        )
-
-    except Error as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al exportar asignaciones: {str(e)}"
-        )
-
-    finally:
-        if conexion.is_connected():
-            if cursor:
-                cursor.close()
-            conexion.close()
-
-# ==========================================
-# EXPORTAR ASIGNACIONES A PDF
-# ==========================================
-
-def exportar_asignaciones_pdf():
-    conexion = get_connection()
-    cursor = None
-
-    try:
-        cursor = conexion.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT
-                ai.id_asignacion AS id,
-                ip.direccion_ip AS direccion_ip,
-                e.nombre_equipo AS equipo_nombre,
-                ai.fecha_asignacion,
-                est.nombre AS estado
-            FROM tbl_asignacion_ip ai
-            INNER JOIN tbl_ip ip
-                ON ai.id_ip = ip.id_ip
-            INNER JOIN tbl_equipo e
-                ON ai.id_equipo = e.id_equipo
-            INNER JOIN tbl_estado est
-                ON ai.id_estado = est.id_estado
-            WHERE ai.id_estado = 4
-            ORDER BY ai.fecha_asignacion DESC
-        """)
-
-        datos = cursor.fetchall()
-
-        archivo = BytesIO()
-        ancho, alto = letter
-        pdf = canvas.Canvas(archivo, pagesize=letter)
-        pdf.setTitle("Reporte de Asignaciones SIGIP")
-
-        fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        encabezados = ["ID", "Dirección IP", "Equipo", "Fecha Asignación", "Estado"]
-        anchos = [50, 110, 170, 150, 80]
-        x_inicio = 40
-        y = alto - 90
-
-        def dibujar_encabezado():
-            pdf.setFillColor(colors.HexColor("#0A4B8F"))
-            pdf.rect(0, alto - 70, ancho, 70, fill=1, stroke=0)
-            pdf.setFillColor(colors.white)
-            pdf.setFont("Helvetica-Bold", 16)
-            pdf.drawString(40, alto - 44, "Reporte de Asignaciones de IP")
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(40, alto - 60, f"Fecha de generación: {fecha}")
-            pdf.setFillColor(colors.white)
-            pdf.setFont("Helvetica-Bold", 9)
-            x = x_inicio
-            for i, texto in enumerate(encabezados):
-                pdf.rect(x, y - 16, anchos[i], 18, fill=1, stroke=0)
-                pdf.setFillColor(colors.white)
-                pdf.drawString(x + 4, y - 12, texto)
-                x += anchos[i]
-            pdf.setFillColor(colors.black)
-
-        def dibujar_pie(pagina):
-            pdf.setFont("Helvetica", 8)
-            pdf.setFillColor(colors.grey)
-            pdf.drawString(40, 40, f"SIGIP - Hospital Militar")
-            pdf.drawRightString(ancho - 40, 40, f"Página {pagina}")
-
-        pagina = 1
-        dibujar_encabezado()
-        pdf.setFont("Helvetica", 8)
-
-        for item in datos:
-            if y < 90:
-                dibujar_pie(pagina)
-                pdf.showPage()
-                pagina += 1
-                y = alto - 90
-                dibujar_encabezado()
-                pdf.setFont("Helvetica", 8)
-
-            x = x_inicio
-            fecha_asignacion = item["fecha_asignacion"].strftime("%Y-%m-%d %H:%M:%S") if item["fecha_asignacion"] else ""
-            fila = [
-                str(item["id"]),
-                item["direccion_ip"],
-                item["equipo_nombre"],
-                fecha_asignacion,
-                item["estado"]
-            ]
-
-            if pagina % 2 == 0:
-                pdf.setFillColor(colors.HexColor("#F3F6FB"))
-                pdf.rect(x_inicio, y - 18, sum(anchos), 18, fill=1, stroke=0)
-                pdf.setFillColor(colors.black)
-
-            for i, valor in enumerate(fila):
-                pdf.drawString(x + 4, y - 12, str(valor))
-                x += anchos[i]
-
-            y -= 20
-            pdf.setFillColor(colors.black)
-
-        dibujar_pie(pagina)
-        pdf.save()
-        archivo.seek(0)
-
-        return StreamingResponse(
-            archivo,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": "attachment; filename=Reporte_Asignaciones_SIGIP.pdf"
-            }
-        )
-
-    except Error as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al exportar asignaciones a PDF: {str(e)}"
-        )
-
-    finally:
-        if conexion.is_connected():
-            if cursor:
-                cursor.close()
-            conexion.close()
-
-# ==========================================
 # ASIGNAR DIRECCIÓN IP
 # ==========================================
 
@@ -833,91 +669,58 @@ def asignar_ip(id_ip: int, id_equipo: int, id_usuario: int, id_usuario_actual: i
             cursor.close()
             conexion.close()
 
-
 # ======================================
 # IMPRIMIR EXEL
 # ======================================
-
-from io import BytesIO
-from pathlib import Path
-from datetime import datetime
-
-from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
-
-from mysql.connector import Error
-
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image
-from openpyxl.drawing.spreadsheet_drawing import (
-    AnchorMarker,
-    OneCellAnchor,
-    XDRPositiveSize2D
-)
-from openpyxl.utils.units import pixels_to_EMU
-from openpyxl.styles import (
-    Font,
-    PatternFill,
-    Alignment,
-    Border,
-    Side
-)
-from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.table import Table, TableStyleInfo
-from openpyxl.worksheet.page import PageMargins
-
-from database.conexion import get_connection
-
-
-def exportar_equipos_excel():
-    conexion = get_connection()
+def exportar_asignaciones_excel():
+    conexion = None
     cursor = None
 
     try:
+        conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
 
         cursor.execute("""
             SELECT
+                ip.direccion_ip,
                 e.nombre_equipo,
-                td.nombre AS tipo,
-                e.marca,
-                e.modelo,
-                d.nombre AS departamento,
-                est.nombre AS estado
-            FROM tbl_equipo e
-            INNER JOIN tbl_tipo_dispositivo td
-                ON td.id_tipo = e.id_tipo
-            INNER JOIN tbl_departamento d
-                ON d.id_departamento = e.id_departamento
-            INNER JOIN tbl_estado est
-                ON est.id_estado = e.id_estado
-            WHERE e.id_estado <> 6
-            ORDER BY e.nombre_equipo ASC
+                ai.fecha_asignacion,
+                CASE
+                    WHEN ai.id_estado = 4 THEN 'Activa'
+                    WHEN ai.id_estado = 3 THEN 'Liberada'
+                    ELSE 'Desconocida'
+                END AS estado
+            FROM tbl_asignacion_ip ai
+            INNER JOIN tbl_ip ip
+                ON ip.id_ip = ai.id_ip
+            INNER JOIN tbl_equipo e
+                ON e.id_equipo = ai.id_equipo
+            ORDER BY ai.fecha_asignacion DESC
         """)
 
         datos = cursor.fetchall()
 
         wb = Workbook()
         ws = wb.active
-        ws.title = "Reporte Equipos"
+        ws.title = "Reporte Asignaciones"
         ws.sheet_view.showGridLines = True
 
         azul = "0A4B8F"
         blanco = "FFFFFF"
 
-        # --- ALINEACIÓN Y ESTRUCTURA DEL ENCABEZADO Y LOGO ---
+        # ---------------- ENCABEZADO ----------------
+
         ws.column_dimensions["A"].width = 20
 
-        # Ajuste de alturas para que el banner azul se vea simétrico con el logo
         ws.row_dimensions[1].height = 12
         ws.row_dimensions[2].height = 28
         ws.row_dimensions[3].height = 24
         ws.row_dimensions[4].height = 24
         ws.row_dimensions[5].height = 12
 
-        # Combinar el espacio del logo A1:A4 y forzar fondo blanco
         ws.merge_cells("A1:A4")
         fill_blanco = PatternFill("solid", fgColor=blanco)
+
         for row in ws["A1:A4"]:
             for cell in row:
                 cell.fill = fill_blanco
@@ -926,17 +729,14 @@ def exportar_equipos_excel():
 
         if logo.exists():
             imagen = Image(str(logo))
-
-            # Dimensiones del logo
             imagen.width = 180
             imagen.height = 180
 
-            # Posicionamiento preciso dentro de la celda combinada
             marker = AnchorMarker(
-                col=0,                     # Columna A
-                row=0,                     # Fila 1
-                colOff=pixels_to_EMU(35),  # Desplazamiento horizontal
-                rowOff=pixels_to_EMU(8)    # Desplazamiento vertical
+                col=0,
+                row=0,
+                colOff=pixels_to_EMU(35),
+                rowOff=pixels_to_EMU(8)
             )
 
             imagen.anchor = OneCellAnchor(
@@ -949,59 +749,52 @@ def exportar_equipos_excel():
 
             ws.add_image(imagen)
 
-        # Encabezados del reporte (Bloque Azul B2:F4)
-        ws.merge_cells("B2:F2")
+        fill_azul = PatternFill("solid", fgColor=azul)
+
+        for fila in range(2, 5):
+            for columna in range(2, 6):
+                ws.cell(row=fila, column=columna).fill = fill_azul
+
+        ws.merge_cells("B2:E2")
         ws["B2"] = "HOSPITAL MILITAR"
         ws["B2"].font = Font(bold=True, size=16, color=blanco)
         ws["B2"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B2"].fill = PatternFill("solid", fgColor=azul)
 
-        ws.merge_cells("B3:F3")
+        ws.merge_cells("B3:E3")
         ws["B3"] = "SISTEMA SIGIP"
         ws["B3"].font = Font(bold=True, size=12, color=blanco)
         ws["B3"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B3"].fill = PatternFill("solid", fgColor=azul)
 
-        ws.merge_cells("B4:F4")
-        ws["B4"] = "REPORTE GENERAL DE EQUIPOS"
+        ws.merge_cells("B4:E4")
+        ws["B4"] = "REPORTE DE ASIGNACIONES DE IP"
         ws["B4"].font = Font(bold=True, size=11, color=blanco)
         ws["B4"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["B4"].fill = PatternFill("solid", fgColor=azul)
 
-        # --- METADATOS DEL REPORTE ---
+        # ---------------- METADATOS ----------------
+
         fecha = datetime.now()
+
         ws["B6"] = "Fecha"
         ws["C6"] = fecha.strftime("%d/%m/%Y")
 
         ws["B7"] = "Hora"
         ws["C7"] = fecha.strftime("%H:%M")
 
-        ws["E6"] = "Total Equipos"
-        ws["F6"] = len(datos)
+        ws["D6"] = "Total Registros"
+        ws["E6"] = len(datos)
 
-        ws["E7"] = "Registros"
-        ws["F7"] = len(datos)
+        ws["D7"] = "Asignaciones"
+        ws["E7"] = len(datos)
 
-        for celda in ["B6", "B7", "E6", "E7"]:
+        for celda in ["B6", "B7", "D6", "D7"]:
             ws[celda].font = Font(bold=True)
 
-        # Configuración de alineación de Metadatos
-        ws["B6"].alignment = Alignment(horizontal="left")
-        ws["B7"].alignment = Alignment(horizontal="left")
-        ws["C6"].alignment = Alignment(horizontal="left")
-        ws["C7"].alignment = Alignment(horizontal="left")
-        ws["E6"].alignment = Alignment(horizontal="left")
-        ws["E7"].alignment = Alignment(horizontal="left")
-        ws["F6"].alignment = Alignment(horizontal="right")
-        ws["F7"].alignment = Alignment(horizontal="right")
+        # ---------------- TABLA ----------------
 
-        # --- TABLA DE DATOS ---
         encabezados = [
-            "Nombre",
-            "Tipo",
-            "Marca",
-            "Modelo",
-            "Departamento",
+            "Dirección IP",
+            "Equipo",
+            "Fecha Asignación",
             "Estado"
         ]
 
@@ -1014,7 +807,6 @@ def exportar_equipos_excel():
             bottom=Side(style="thin", color="D9D9D9")
         )
 
-        # Insertar encabezados
         for columna, texto in enumerate(encabezados, start=1):
             celda = ws.cell(row=fila_inicio, column=columna)
             celda.value = texto
@@ -1023,17 +815,21 @@ def exportar_equipos_excel():
             celda.alignment = Alignment(horizontal="center", vertical="center")
             celda.border = borde
 
-        # Insertar filas
         fila = fila_inicio + 1
-        for equipo in datos:
-            ws.cell(fila, 1).value = equipo["nombre_equipo"]
-            ws.cell(fila, 2).value = equipo["tipo"]
-            ws.cell(fila, 3).value = equipo["marca"]
-            ws.cell(fila, 4).value = equipo["modelo"]
-            ws.cell(fila, 5).value = equipo["departamento"]
-            ws.cell(fila, 6).value = equipo["estado"]
 
-            for columna in range(1, 7):
+        for asignacion in datos:
+
+            fecha_asignacion = ""
+
+            if asignacion["fecha_asignacion"]:
+                fecha_asignacion = asignacion["fecha_asignacion"].strftime("%d/%m/%Y %H:%M")
+
+            ws.cell(fila, 1).value = asignacion["direccion_ip"]
+            ws.cell(fila, 2).value = asignacion["nombre_equipo"]
+            ws.cell(fila, 3).value = fecha_asignacion
+            ws.cell(fila, 4).value = asignacion["estado"]
+
+            for columna in range(1, 5):
                 celda = ws.cell(fila, columna)
                 celda.border = borde
                 celda.alignment = Alignment(vertical="center")
@@ -1042,33 +838,12 @@ def exportar_equipos_excel():
 
         ultima_fila = max(fila - 1, fila_inicio)
 
-        # Formato de semáforo por Estado
-        verde = PatternFill(fill_type="solid", fgColor="C6EFCE")
-        amarillo = PatternFill(fill_type="solid", fgColor="FFF2CC")
-        rojo = PatternFill(fill_type="solid", fgColor="F4CCCC")
-
-        for fila_actual in range(fila_inicio + 1, ultima_fila + 1):
-            celda_estado = ws.cell(fila_actual, 6)
-            estado = celda_estado.value
-
-            if estado is None:
-                continue
-
-            estado_str = str(estado).upper()
-
-            if "ACT" in estado_str:
-                celda_estado.fill = verde
-            elif "MANT" in estado_str:
-                celda_estado.fill = amarillo
-            elif "BAJA" in estado_str:
-                celda_estado.fill = rojo
-
-        # Crear tabla oficial de Excel sin sobrescribir el semáforo
         if datos:
-            tabla = Table(
-                displayName="TablaEquipos",
-                ref=f"A{fila_inicio}:F{ultima_fila}"
+            tabla = ExcelTable(
+                displayName="TablaAsignaciones",
+                ref=f"A{fila_inicio}:D{ultima_fila}"
             )
+
             estilo = TableStyleInfo(
                 name="TableStyleLight1",
                 showFirstColumn=False,
@@ -1076,40 +851,46 @@ def exportar_equipos_excel():
                 showRowStripes=False,
                 showColumnStripes=False
             )
+
             tabla.tableStyleInfo = estilo
             ws.add_table(tabla)
 
         ws.freeze_panes = f"A{fila_inicio + 1}"
 
-        # Ajuste de ancho de columnas
-        for columna in range(1, 7):
+        for columna in range(1, 5):
             letra = get_column_letter(columna)
             longitud = 0
+
             for fila_excel in range(1, ultima_fila + 1):
                 valor = ws.cell(fila_excel, columna).value
+
                 if valor is not None:
                     longitud = max(longitud, len(str(valor)))
-            # Mantener un ancho mínimo cómodo
-            ws.column_dimensions[letra].width = max(longitud + 4, 15)
 
-        # Pie de página / Resumen
+            ws.column_dimensions[letra].width = max(longitud + 4, 18)
+
         fila_resumen = ultima_fila + 3
+
         ws.merge_cells(
             start_row=fila_resumen,
             start_column=1,
             end_row=fila_resumen,
-            end_column=6
+            end_column=4
         )
 
         celda_resumen = ws.cell(row=fila_resumen, column=1)
         celda_resumen.value = "Reporte generado automáticamente por SIGIP"
-        celda_resumen.font = Font(italic=True, size=10, color="666666")
+        celda_resumen.font = Font(
+            italic=True,
+            size=10,
+            color="666666"
+        )
         celda_resumen.alignment = Alignment(horizontal="center")
 
-        # Configuración de impresión
         ws.page_setup.orientation = "landscape"
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
         ws.page_setup.fitToWidth = 1
+
         ws.page_margins = PageMargins(
             left=0.3,
             right=0.3,
@@ -1118,10 +899,8 @@ def exportar_equipos_excel():
         )
 
         wb.properties.creator = "SIGIP"
-        wb.properties.title = "Reporte General de Equipos"
+        wb.properties.title = "Reporte de Asignaciones"
         wb.properties.subject = "Hospital Militar"
-        wb.properties.company = "Hospital Militar"
-        wb.properties.category = "Reportes"
 
         archivo = BytesIO()
         wb.save(archivo)
@@ -1131,20 +910,328 @@ def exportar_equipos_excel():
             archivo,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": "attachment; filename=Reporte_Equipos_SIGIP.xlsx"
+                "Content-Disposition": "attachment; filename=Reporte_Asignaciones_SIGIP.xlsx"
             }
         )
 
     except Error as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error al exportar equipos: {str(e)}"
+            detail=f"Error al exportar asignaciones: {str(e)}"
         )
 
     finally:
+        if cursor:
+            cursor.close()
+
         if conexion and conexion.is_connected():
-            if cursor:
-                cursor.close()
             conexion.close()
 
-            
+# ======================================
+# IMPRIMIR PDF
+# ======================================
+import os
+from datetime import datetime
+
+from mysql.connector import Error
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table as PDFTable,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    Image as RLImage
+)
+from database.conexion import get_connection
+
+
+class NumberedCanvas(canvas.Canvas):
+    """
+    Canvas personalizado para numeración de páginas.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_decorations(num_pages)
+            super().showPage()
+
+        super().save()
+
+    def draw_page_decorations(self, page_count):
+
+        self.saveState()
+
+        self.setFont("Helvetica", 8)
+        self.setFillColor(colors.HexColor("#555555"))
+
+        fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        self.drawString(
+            1.5 * cm,
+            0.8 * cm,
+            f"Hospital Militar — Generado: {fecha_actual}"
+        )
+
+        self.drawRightString(
+            26.4 * cm,
+            0.8 * cm,
+            f"Página {self._pageNumber} de {page_count}"
+        )
+
+        self.setStrokeColor(colors.HexColor("#CCCCCC"))
+        self.setLineWidth(0.5)
+
+        self.line(
+            1.5 * cm,
+            1.2 * cm,
+            26.4 * cm,
+            1.2 * cm
+        )
+
+        self.restoreState()
+
+
+def exportar_asignaciones_pdf():
+
+    conexion = None
+    cursor = None
+
+    try:
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT
+
+                ai.id_asignacion AS id,
+
+                ip.direccion_ip AS ip_direccion,
+
+                e.nombre_equipo AS equipo_nombre,
+
+                ai.fecha_asignacion,
+
+                ai.fecha_liberacion,
+
+                ai.id_estado,
+
+                est.nombre AS estado,
+
+                CASE
+                    WHEN ai.id_estado = 4 THEN TRUE
+                    ELSE FALSE
+                END AS activo
+
+            FROM tbl_asignacion_ip ai
+
+            INNER JOIN tbl_ip ip
+                ON ai.id_ip = ip.id_ip
+
+            INNER JOIN tbl_equipo e
+                ON ai.id_equipo = e.id_equipo
+
+            INNER JOIN tbl_estado est
+                ON ai.id_estado = est.id_estado
+
+            WHERE ai.id_estado = 4
+
+            ORDER BY ai.id_asignacion DESC
+        """)
+
+        asignaciones = cursor.fetchall()
+
+        carpeta = "exports"
+
+        if not os.path.exists(carpeta):
+            os.makedirs(carpeta)
+
+        archivo_pdf = os.path.join(
+            carpeta,
+            "Reporte_Asignaciones_IP.pdf"
+        )
+
+        documento = SimpleDocTemplate(
+            archivo_pdf,
+            pagesize=landscape(letter),
+            leftMargin=1.5 * cm,
+            rightMargin=1.5 * cm,
+            topMargin=1.5 * cm,
+            bottomMargin=1.8 * cm
+        )
+
+        estilos = getSampleStyleSheet()
+
+        titulo_estilo = ParagraphStyle(
+            "TituloSIGIP",
+            parent=estilos["Title"],
+            alignment=TA_CENTER,
+            fontName="Helvetica-Bold",
+            fontSize=16,
+            leading=20,
+            textColor=colors.HexColor("#003366")
+        )
+
+        estilo_celda = ParagraphStyle(
+            "Celda",
+            parent=estilos["Normal"],
+            fontSize=8,
+            leading=10,
+            alignment=TA_LEFT
+        )
+
+        estilo_encabezado = ParagraphStyle(
+            "Encabezado",
+            parent=estilos["Normal"],
+            fontSize=9,
+            leading=11,
+            textColor=colors.white,
+            fontName="Helvetica-Bold",
+            alignment=TA_CENTER
+        )
+
+        contenido = []
+
+        logo_path = os.path.join(
+            "assets",
+            "hospital_logo.png"
+        )
+
+        titulo = """
+        <b>HOSPITAL MILITAR</b><br/>
+        <font size=10 color="#555555">
+        SIGIP - Sistema de Gestión de Direcciones IP
+        </font><br/>
+        <font size=12 color="#003366">
+        <b>REPORTE DE ASIGNACIONES DE IP</b>
+        </font>
+        """
+
+        paragraph = Paragraph(
+            titulo,
+            titulo_estilo
+        )
+
+        if os.path.exists(logo_path):
+
+            logo = RLImage(
+                logo_path,
+                width=2.3 * cm,
+                height=2.3 * cm
+            )
+
+            header = PDFTable(
+                [[logo, paragraph]],
+                colWidths=[2.8 * cm, 22.1 * cm]
+            )
+
+            header.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ]))
+
+            contenido.append(header)
+
+        else:
+
+            contenido.append(paragraph)
+
+        contenido.append(
+            Spacer(1, 0.6 * cm)
+        )
+
+        datos = [[
+            Paragraph("Dirección IP", estilo_encabezado),
+            Paragraph("Equipo", estilo_encabezado),
+            Paragraph("Fecha Asignación", estilo_encabezado),
+            Paragraph("Estado", estilo_encabezado),
+        ]]
+
+        for fila in asignaciones:
+
+
+            fecha = ""
+
+            if fila["fecha_asignacion"]:
+                fecha = fila["fecha_asignacion"].strftime("%d/%m/%Y %H:%M")
+
+            datos.append([
+                Paragraph(str(fila["ip_direccion"]), estilo_celda),
+                Paragraph(str(fila["equipo_nombre"]), estilo_celda),
+                Paragraph(fecha, estilo_celda),
+                Paragraph(str(fila["estado"]), estilo_celda),
+            ])
+
+            tabla = PDFTable(
+                datos,
+                repeatRows=1,
+                colWidths=[
+                5 * cm,
+                10 * cm,
+                6 * cm,
+                4 * cm
+                ]
+            )
+
+        tabla.setStyle(TableStyle([
+
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F9F9F9")),
+
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+            ("TOPPADDING", (0, 0), (-1, 0), 6)
+
+        ]))
+
+        contenido.append(tabla)
+
+        documento.build(
+            contenido,
+            canvasmaker=NumberedCanvas
+        )
+
+        return archivo_pdf
+
+    except Error as e:
+        raise Exception(
+            f"Error al consultar la base de datos: {str(e)}"
+        )
+
+    except Exception as e:
+        raise Exception(
+            f"Error al generar el PDF: {str(e)}"
+        )
+
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if conexion and conexion.is_connected():
+            conexion.close()

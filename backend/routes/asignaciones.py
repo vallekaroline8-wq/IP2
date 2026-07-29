@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 from dependencies.auth_dependency import obtener_usuario_actual
 
 from models.asignacion_model import AsignacionCreate
@@ -17,7 +18,6 @@ router = APIRouter(
     prefix="/api/asignaciones",
     tags=["Asignaciones"]
 )
-
 
 # ==========================================
 # LISTAR ASIGNACIONES
@@ -81,14 +81,23 @@ def listar_ips_disponibles(id_segmento: int):
 def exportar_excel():
     return exportar_asignaciones_excel()
 
-# ==========================================# EXPORTAR ASIGNACIONES A PDF
+# ==========================================
+# EXPORTAR ASIGNACIONES A PDF
 # ==========================================
 
 @router.get("/export/pdf")
 def exportar_pdf():
-    return exportar_asignaciones_pdf()
 
-# ==========================================# ASIGNAR DIRECCIÓN IP
+    archivo = exportar_asignaciones_pdf()
+
+    return FileResponse(
+        path=archivo,
+        media_type="application/pdf",
+        filename="Reporte_Asignaciones_IP.pdf"
+    )
+
+# ==========================================
+# # ASIGNAR DIRECCIÓN IP
 # ==========================================
 
 @router.post("/")
