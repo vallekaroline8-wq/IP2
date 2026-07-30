@@ -24,7 +24,7 @@ from database.conexion import get_connection
 class NumberedCanvas(canvas.Canvas):
     """
     Canvas personalizado para calcular el total de páginas y dibujar
-    el pie de página (con numeración dinámicamente) en dos pasadas.
+    el pie de página (con numeración dinámica) en dos pasadas.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -63,7 +63,7 @@ class NumberedCanvas(canvas.Canvas):
         self.restoreState()
 
 
-def exportar_equipos_pdf():
+def exportar_ips_pdf():
     conexion = None
     cursor = None
 
@@ -73,31 +73,36 @@ def exportar_equipos_pdf():
 
         cursor.execute("""
             SELECT
-                e.nombre_equipo,
-                td.nombre AS tipo,
-                e.marca,
-                e.modelo,
-                d.nombre AS departamento,
-                e.ubicacion,
-                e.area,
-                e.extension
-            FROM tbl_equipo e
-            INNER JOIN tbl_tipo_dispositivo td
-                ON td.id_tipo = e.id_tipo
-            INNER JOIN tbl_departamento d
-                ON d.id_departamento = e.id_departamento
-            WHERE e.id_estado <> 6
-            ORDER BY e.nombre_equipo
+                ip.direccion_ip AS direccion,
+                seg.nombre AS segmento,
+                est.nombre AS estado,
+                (
+                    SELECT eq.nombre_equipo
+                    FROM tbl_asignacion_ip asig
+                    LEFT JOIN tbl_equipo eq
+                        ON eq.id_equipo = asig.id_equipo
+                    WHERE asig.id_ip = ip.id_ip
+                      AND asig.fecha_liberacion IS NULL
+                    ORDER BY asig.fecha_asignacion DESC
+                    LIMIT 1
+                ) AS equipo
+            FROM tbl_ip ip
+            LEFT JOIN tbl_segmento seg
+                ON seg.id_segmento = ip.id_segmento
+            LEFT JOIN tbl_estado est
+                ON est.id_estado = ip.id_estado
+            WHERE ip.id_estado IN (3, 4, 5)
+            ORDER BY ip.direccion_ip ASC
         """)
 
-        equipos = cursor.fetchall()
+        ips = cursor.fetchall()
 
-        # Configuración de carpeta y archivo de salida
+        # Configuración de carpeta y archivo de salida local
         carpeta = "exports"
         if not os.path.exists(carpeta):
             os.makedirs(carpeta)
 
-        archivo_pdf = os.path.join(carpeta, "Reporte_Equipos.pdf")
+        archivo_pdf = os.path.join(carpeta, "Reporte_Direcciones_IP.pdf")
 
         # Configuración del documento PDF (Horizontal / Landscape)
         documento = SimpleDocTemplate(
@@ -130,6 +135,14 @@ def exportar_equipos_pdf():
             alignment=TA_LEFT
         )
 
+        estilo_celda_centro = ParagraphStyle(
+            'CeldaTablaCentro',
+            parent=estilos['Normal'],
+            fontSize=8,
+            leading=10,
+            alignment=TA_CENTER
+        )
+
         estilo_encabezado = ParagraphStyle(
             'EncabezadoTabla',
             parent=estilos['Normal'],
@@ -143,12 +156,13 @@ def exportar_equipos_pdf():
         contenido = []
 
         # --- ENCABEZADO / CABECERA ---
+        # Ruta estándar compatible con el módulo de Equipos
         logo_path = os.path.join("assets", "hospital_logo.png")
 
         titulo_texto = """
         <b>HOSPITAL MILITAR</b><br/>
         <font size=10 color="#555555">SIGIP - Sistema de Gestión de Direcciones IP</font><br/>
-        <font size=12 color="#003366"><b>REPORTE GENERAL DE EQUIPOS</b></font>
+        <font size=12 color="#003366"><b>REPORTE GENERAL DE DIRECCIONES IP</b></font>
         """
         paragraph_titulo = Paragraph(titulo_texto, titulo_estilo)
 
@@ -171,52 +185,42 @@ def exportar_equipos_pdf():
 
         # --- CONSTRUCCIÓN DE LA TABLA ---
         datos = [[
-            Paragraph("Nombre", estilo_encabezado),
-            Paragraph("Tipo", estilo_encabezado),
-            Paragraph("Marca", estilo_encabezado),
-            Paragraph("Modelo", estilo_encabezado),
-            Paragraph("Departamento", estilo_encabezado),
-            Paragraph("Ubicación", estilo_encabezado),
-            Paragraph("Área", estilo_encabezado),
-            Paragraph("Extensión", estilo_encabezado)
+            Paragraph("Dirección IP", estilo_encabezado),
+            Paragraph("Segmento", estilo_encabezado),
+            Paragraph("Estado", estilo_encabezado),
+            Paragraph("Equipo", estilo_encabezado)
         ]]
 
         estilos_tabla = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-            ("TOPPADDING", (0, 0), (-1, 0), 6),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F9F9F9")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D9D9D9")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
         ]
 
-        # Cargar datos
-        for equipo in equipos:
+        # Cargar datos e incorporar intercalado de colores en filas
+        for idx, ip in enumerate(ips, start=1):
+            bg_color = colors.HexColor("#FFFFFF") if idx % 2 != 0 else colors.HexColor("#F9F9F9")
+            estilos_tabla.append(("BACKGROUND", (0, idx), (-1, idx), bg_color))
+
             datos.append([
-                Paragraph(str(equipo["nombre_equipo"] or ""), estilo_celda),
-                Paragraph(str(equipo["tipo"] or ""), estilo_celda),
-                Paragraph(str(equipo["marca"] or "-"), estilo_celda),
-                Paragraph(str(equipo["modelo"] or "-"), estilo_celda),
-                Paragraph(str(equipo["departamento"] or ""), estilo_celda),
-                Paragraph(str(equipo["ubicacion"] or "-"), estilo_celda),
-                Paragraph(str(equipo["area"] or "-"), estilo_celda),
-                Paragraph(str(equipo["extension"] or "-"), estilo_celda),
+                Paragraph(str(ip["direccion"] or ""), estilo_celda_centro),
+                Paragraph(str(ip["segmento"] or ""), estilo_celda),
+                Paragraph(str(ip["estado"] or ""), estilo_celda_centro),
+                Paragraph(str(ip["equipo"] or "-"), estilo_celda),
             ])
 
-        # Ancho total configurable para la hoja en horizontal (aprox. 24.9 cm utilizables)
+        # Ancho total utilizable para la hoja Horizontal (24.9 cm)
         tabla = Table(
             datos,
             repeatRows=1,  # Repite el encabezado si se extiende a más páginas
             colWidths=[
-                4.3 * cm,  # Nombre
-                2.7 * cm,  # Tipo
-                2.3 * cm,  # Marca
-                3.2 * cm,  # Modelo
-                4.2 * cm,  # Departamento
-                3.7 * cm,  # Ubicación
-                2.2 * cm,  # Área
-                2.3 * cm,  # Extensión
+                5.0 * cm,   # Dirección IP
+                5.0 * cm,   # Segmento
+                3.5 * cm,   # Estado
+                11.4 * cm,  # Equipo
             ]
         )
         tabla.setStyle(TableStyle(estilos_tabla))
@@ -225,6 +229,7 @@ def exportar_equipos_pdf():
 
         # Construir el documento PDF con numeración de páginas
         documento.build(contenido, canvasmaker=NumberedCanvas)
+
         return archivo_pdf
 
     except Error as e:
@@ -234,6 +239,12 @@ def exportar_equipos_pdf():
 
     finally:
         if cursor:
-            cursor.close()
+            try:
+                cursor.close()
+            except Exception:
+                pass
         if conexion and conexion.is_connected():
-            conexion.close()
+            try:
+                conexion.close()
+            except Exception:
+                pass
