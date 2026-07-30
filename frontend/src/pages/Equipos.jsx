@@ -64,6 +64,7 @@ export default function Equipos() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   // Filtros
@@ -87,6 +88,7 @@ export default function Equipos() {
   const openNew = () => {
     setEditing(null);
     setForm(empty);
+    setErrors({});
     setOpen(true);
   };
 
@@ -103,37 +105,66 @@ export default function Equipos() {
       area: equipo.area || "",
       extension: equipo.extension || "",
     });
+    setErrors({});
 
     setOpen(true);
   };
 
+  const validateForm = () => {
+    if (editing) return true;
+
+    const nextErrors = {};
+
+    if (!form.nombre_equipo.trim()) {
+      nextErrors.nombre_equipo = "El nombre del equipo es obligatorio";
+    }
+
+    if (!form.marca.trim()) {
+      nextErrors.marca = "La marca es obligatoria";
+    }
+
+    if (!form.modelo.trim()) {
+      nextErrors.modelo = "El modelo es obligatorio";
+    }
+
+    if (!form.id_departamento) {
+      nextErrors.id_departamento = "El departamento es obligatorio";
+    }
+
+    if (tipoSeleccionado === "Cámara IP" && !form.ubicacion.trim()) {
+      nextErrors.ubicacion = "La ubicación es obligatoria";
+    }
+
+    if (tipoSeleccionado === "Teléfono IP") {
+      if (!form.area.trim()) {
+        nextErrors.area = "El área es obligatoria";
+      }
+      if (!form.extension.trim()) {
+        nextErrors.extension = "La extensión es obligatoria";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const save = async () => {
-    if (
-      !form.nombre_equipo.trim() ||
-      !form.id_tipo ||
-      !form.id_departamento
-    ) {
-      return fail({
-        response: {
-          data: {
-            detail: "Nombre, tipo y departamento son obligatorios.",
-          },
-        },
-      });
+    if (!validateForm()) {
+      return;
     }
 
     setSaving(true);
 
     const payload = {
       nombre_equipo: form.nombre_equipo.trim(),
-      marca: form.marca,
-      modelo: form.modelo,
-      id_tipo: Number(form.id_tipo),
+      marca: form.marca.trim(),
+      modelo: form.modelo.trim(),
+      ...(form.id_tipo ? { id_tipo: Number(form.id_tipo) } : {}),
       id_departamento: Number(form.id_departamento),
-      ...(tipoSeleccionado === "Cámara IP" && { ubicacion: form.ubicacion }),
+      ...(tipoSeleccionado === "Cámara IP" && { ubicacion: form.ubicacion.trim() }),
       ...(tipoSeleccionado === "Teléfono IP" && {
-        area: form.area,
-        extension: form.extension,
+        area: form.area.trim(),
+        extension: form.extension.trim(),
       }),
     };
 
@@ -350,7 +381,7 @@ export default function Equipos() {
       </TableWrap>
 
       {/* Modal / Diálogo para Crear y Editar */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setErrors({}); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -386,36 +417,50 @@ export default function Equipos() {
             <div className="col-span-2">
               <Label>Nombre del equipo</Label>
               <Input
-                className="mt-1.5"
+                className={`mt-1.5 ${errors.nombre_equipo ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 value={form.nombre_equipo}
-                onChange={(e) =>
-                  setForm({ ...form, nombre_equipo: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, nombre_equipo: e.target.value });
+                  if (errors.nombre_equipo) {
+                    setErrors((prev) => ({ ...prev, nombre_equipo: "" }));
+                  }
+                }}
               />
+              {errors.nombre_equipo && (
+                <p className="text-xs text-destructive mt-1">{errors.nombre_equipo}</p>
+              )}
             </div>
 
             {/* Marca */}
             <div>
               <Label>Marca</Label>
               <Input
-                className="mt-1.5"
+                className={`mt-1.5 ${errors.marca ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 value={form.marca}
-                onChange={(e) =>
-                  setForm({ ...form, marca: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, marca: e.target.value });
+                  if (errors.marca) {
+                    setErrors((prev) => ({ ...prev, marca: "" }));
+                  }
+                }}
               />
+              {errors.marca && <p className="text-xs text-destructive mt-1">{errors.marca}</p>}
             </div>
 
             {/* Modelo */}
             <div>
               <Label>Modelo</Label>
               <Input
-                className="mt-1.5"
+                className={`mt-1.5 ${errors.modelo ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 value={form.modelo}
-                onChange={(e) =>
-                  setForm({ ...form, modelo: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, modelo: e.target.value });
+                  if (errors.modelo) {
+                    setErrors((prev) => ({ ...prev, modelo: "" }));
+                  }
+                }}
               />
+              {errors.modelo && <p className="text-xs text-destructive mt-1">{errors.modelo}</p>}
             </div>
 
             {/* Departamento */}
@@ -423,9 +468,12 @@ export default function Equipos() {
               <Label>Departamento</Label>
               <Select
                 value={form.id_departamento}
-                onValueChange={(v) =>
-                  setForm({ ...form, id_departamento: v })
-                }
+                onValueChange={(v) => {
+                  setForm({ ...form, id_departamento: v });
+                  if (errors.id_departamento) {
+                    setErrors((prev) => ({ ...prev, id_departamento: "" }));
+                  }
+                }}
               >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Seleccione un departamento" />
@@ -441,6 +489,9 @@ export default function Equipos() {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.id_departamento && (
+                <p className="text-xs text-destructive mt-1">{errors.id_departamento}</p>
+              )}
             </div>
 
             {/* Campos dinámicos */}
@@ -448,13 +499,19 @@ export default function Equipos() {
               <div className="col-span-2">
                 <Label>Ubicación</Label>
                 <Input
-                  className="mt-1.5"
+                  className={`mt-1.5 ${errors.ubicacion ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   placeholder="Ej. Pasillo Principal"
                   value={form.ubicacion}
-                  onChange={(e) =>
-                    setForm({ ...form, ubicacion: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, ubicacion: e.target.value });
+                    if (errors.ubicacion) {
+                      setErrors((prev) => ({ ...prev, ubicacion: "" }));
+                    }
+                  }}
                 />
+                {errors.ubicacion && (
+                  <p className="text-xs text-destructive mt-1">{errors.ubicacion}</p>
+                )}
               </div>
             )}
 
@@ -463,25 +520,35 @@ export default function Equipos() {
                 <div>
                   <Label>Área</Label>
                   <Input
-                    className="mt-1.5"
+                    className={`mt-1.5 ${errors.area ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     placeholder="Ej. Emergencias"
                     value={form.area}
-                    onChange={(e) =>
-                      setForm({ ...form, area: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setForm({ ...form, area: e.target.value });
+                      if (errors.area) {
+                        setErrors((prev) => ({ ...prev, area: "" }));
+                      }
+                    }}
                   />
+                  {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
                 </div>
 
                 <div>
                   <Label>Extensión</Label>
                   <Input
-                    className="mt-1.5"
+                    className={`mt-1.5 ${errors.extension ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     placeholder="Ej. 2104"
                     value={form.extension}
-                    onChange={(e) =>
-                      setForm({ ...form, extension: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setForm({ ...form, extension: e.target.value });
+                      if (errors.extension) {
+                        setErrors((prev) => ({ ...prev, extension: "" }));
+                      }
+                    }}
                   />
+                  {errors.extension && (
+                    <p className="text-xs text-destructive mt-1">{errors.extension}</p>
+                  )}
                 </div>
               </>
             )}

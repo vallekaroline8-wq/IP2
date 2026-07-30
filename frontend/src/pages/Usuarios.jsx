@@ -284,16 +284,15 @@ export default function Usuarios() {
       <PageHeader
         title="Usuarios"
         description="Administración de cuentas y permisos de acceso."
-      >
-        <Button onClick={openNew}>
-          Nuevo Usuario
-        </Button>
-      </PageHeader>
+      />
 
-      {/* Barra de búsqueda reutilizable */}
+      {/* Barra de acciones reutilizable */}
       <Toolbar
         search={L.search}
         setSearch={L.setSearch}
+        onAdd={openNew}
+        addLabel="Nuevo Usuario"
+        canAdd={true}
       />
 
       {/* Tabla de Datos */}

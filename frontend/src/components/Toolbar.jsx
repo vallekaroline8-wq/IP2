@@ -13,11 +13,10 @@ export const Toolbar = ({
   showBorder = true,
 }) => (
   <div
-    className={`flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-2 ${
-      showBorder ? "border-b border-border" : ""
-    }`}
+className={`flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-2 ${
+  showBorder ? "border-b border-border" : ""
+}`}
   >
-    {/* Buscador */}
     {showSearch && (
       <div className="relative flex-1 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -30,13 +29,12 @@ export const Toolbar = ({
         />
       </div>
     )}
-
     {/* Controles del lado derecho */}
     <div className="flex items-center gap-2 ml-auto">
       {children}
 
-      {canAdd && (
-        <Button onClick={onAdd}>
+      {onAdd && canAdd && (
+        <Button onClick={onAdd} className="sm:ml-auto" data-testid="add-button">
           <Plus className="w-4 h-4 mr-2" />
           {addLabel}
         </Button>
