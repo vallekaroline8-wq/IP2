@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from models.departamento_model import DepartamentoCreate
 
@@ -22,8 +22,8 @@ router = APIRouter(
     summary="Listar Departamentos",
     description="Obtiene únicamente los departamentos activos."
 )
-def listar_departamentos():
-    return obtener_departamentos()
+def listar_departamentos(search: str = Query(default="")):
+    return obtener_departamentos(search)
 
 
 @router.post(

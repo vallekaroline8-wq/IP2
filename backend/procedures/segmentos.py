@@ -103,10 +103,10 @@ def crear_segmento(nombre, direccion_red, mascara, gateway="", id_usuario_actual
     mascara = mascara.strip()
     gateway = gateway.strip()
 
-    if not nombre or not direccion_red or not mascara:
+    if not nombre or not direccion_red or not mascara or not gateway:
         raise HTTPException(
             status_code=400,
-            detail="Nombre, dirección de red y máscara son obligatorios."
+            detail="Nombre, dirección de red, máscara y gateway son obligatorios."
         )
 
     conexion = get_connection()
@@ -288,10 +288,10 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="",
     mascara = mascara.strip()
     gateway = gateway.strip()
 
-    if not nombre or not direccion_red or not mascara:
+    if not nombre or not direccion_red or not mascara or not gateway:
         raise HTTPException(
             status_code=400,
-            detail="Nombre, dirección de red y máscara son obligatorios."
+            detail="Nombre, dirección de red, máscara y gateway son obligatorios."
         )
 
     conexion = get_connection()
