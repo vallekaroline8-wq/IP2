@@ -8,6 +8,7 @@ import { Pagination, TableSkeleton } from "@/components/Pagination";
 import { TableWrap, Th, Td, EmptyRow } from "@/components/Toolbar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ export default function Asignaciones() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [open, setOpen] = useState(false);
@@ -32,8 +34,28 @@ export default function Asignaciones() {
   const [equipoOpen, setEquipoOpen] = useState(false);
   const [equipoQuery, setEquipoQuery] = useState("");
 
-  const filteredEquipos = equipos.filter((e) => e.nombre.toLowerCase().includes(equipoQuery.toLowerCase()));
+  const normalizeText = (text) => {
+    return String(text)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const filteredEquipos = equipos.filter((e) => normalizeText(e.nombre).includes(normalizeText(equipoQuery)));
   const selectedEquipoNombre = equipos.find((e) => e.id === form.equipo_id)?.nombre;
+  const filteredItems = items.filter((a) => {
+    const query = normalizeText(search.trim());
+    if (!query) return true;
+
+    const fields = [
+      a.ip_direccion,
+      a.equipo_nombre,
+      a.fecha_asignacion?.slice(0, 16).replace("T", " "),
+      a.activo ? "activa" : "liberada"
+    ].filter(Boolean);
+
+    return fields.some((value) => normalizeText(value).includes(query));
+  });
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -90,13 +112,23 @@ export default function Asignaciones() {
         )}
       </PageHeader>
 
+      <div className="mb-4">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por IP, equipo o estado..."
+          className="max-w-sm"
+          data-testid="search-input"
+        />
+      </div>
+
       <TableWrap>
         {loading ? <TableSkeleton cols={5} /> : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted/40"><tr><Th>Dirección IP</Th><Th>Equipo</Th><Th>Fecha Asignación</Th><Th>Estado</Th><Th className="text-right">Acciones</Th></tr></thead>
               <tbody className="divide-y divide-border">
-                {items.length === 0 ? <EmptyRow cols={5} /> : items.map((a) => (
+                {filteredItems.length === 0 ? <EmptyRow cols={5} /> : filteredItems.map((a) => (
                   <tr key={a.id} className="hover:bg-accent/40 transition-colors" data-testid={`asig-row-${a.id}`}>
                     <Td className="font-mono-ip font-medium">{a.ip_direccion}</Td>
                     <Td>{a.equipo_nombre}</Td>
