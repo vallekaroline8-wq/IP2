@@ -51,7 +51,9 @@ export default function Segmentos() {
     } else if (!isValidIPv4(form.mascara)) {
       errs.mascara = "Formato IPv4 inválido (ej. 255.255.255.0)";
     }
-    if (form.gateway.trim() && !isValidIPv4(form.gateway)) {
+    if (!form.gateway.trim()) {
+      errs.gateway = "El gateway es obligatorio";
+    } else if (!isValidIPv4(form.gateway)) {
       errs.gateway = "Formato IPv4 inválido (ej. 172.16.0.1)";
     }
     setErrors(errs);
