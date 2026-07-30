@@ -8,6 +8,7 @@ import { Pagination, TableSkeleton } from "@/components/Pagination";
 import { TableWrap, Th, Td, EmptyRow } from "@/components/Toolbar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -18,10 +19,11 @@ import { confirmAction, ok, fail } from "@/utils/ui";
 export default function Asignaciones() {
   const { can } = useAuth();
   const equipos = useOptions("asignaciones/equipos");
- const segs = useOptions("asignaciones/segmentos");
+  const segs = useOptions("asignaciones/segmentos");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [open, setOpen] = useState(false);
@@ -32,8 +34,28 @@ export default function Asignaciones() {
   const [equipoOpen, setEquipoOpen] = useState(false);
   const [equipoQuery, setEquipoQuery] = useState("");
 
-  const filteredEquipos = equipos.filter((e) => e.nombre.toLowerCase().includes(equipoQuery.toLowerCase()));
+  const normalizeText = (text) => {
+    return String(text)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const filteredEquipos = equipos.filter((e) => normalizeText(e.nombre).includes(normalizeText(equipoQuery)));
   const selectedEquipoNombre = equipos.find((e) => e.id === form.equipo_id)?.nombre;
+  const filteredItems = items.filter((a) => {
+    const query = normalizeText(search.trim());
+    if (!query) return true;
+
+    const fields = [
+      a.ip_direccion,
+      a.equipo_nombre,
+      a.fecha_asignacion?.slice(0, 16).replace("T", " "),
+      a.activo ? "activa" : "liberada"
+    ].filter(Boolean);
+
+    return fields.some((value) => normalizeText(value).includes(query));
+  });
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -43,9 +65,25 @@ export default function Asignaciones() {
   useEffect(() => { fetch(); }, [fetch]);
 
   useEffect(() => {
-    if (!form.segmento_id) { setAvailIps([]); return; }
-    api.get("/ips", { params: { segmento_id: form.segmento_id, estado: "disponible", limit: 300 } })
-      .then((r) => setAvailIps(r.data.items)).catch(() => setAvailIps([]));
+    if (!form.segmento_id) {
+      setAvailIps([]);
+      return;
+    }
+
+    api.get("/asignaciones/ips", {
+      params: {
+        id_segmento: Number(form.segmento_id)
+      }
+    })
+      .then((response) => {
+        console.log("IPS disponibles:", response.data);
+        setAvailIps(response.data);
+      })
+      .catch((error) => {
+        console.error(error);
+        setAvailIps([]);
+      });
+
   }, [form.segmento_id]);
 
   const openNew = (reasig = false) => { setReasignar(reasig); setForm({ equipo_id: "", segmento_id: "", ip_id: "" }); setOpen(true); };
@@ -54,8 +92,8 @@ export default function Asignaciones() {
     if (!form.equipo_id || !form.ip_id) return fail({ response: { data: { detail: "Seleccione equipo e IP" } } });
     setSaving(true);
     try {
-      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones";
-      await api.post(url, { equipo_id: form.equipo_id, ip_id: form.ip_id });
+      const url = reasignar ? "/asignaciones/reasignar" : "/asignaciones/";
+      await api.post(url, { id_ip: Number(form.ip_id), id_equipo: Number(form.equipo_id), id_usuario: 1 });
       ok(reasignar ? "IP reasignada correctamente" : "IP asignada correctamente");
       setOpen(false); fetch();
     } catch (e) { fail(e); } finally { setSaving(false); }
@@ -68,14 +106,21 @@ export default function Asignaciones() {
 
   return (
     <div>
-      <PageHeader title="Asignaciones de IP" subtitle="Asignar, liberar y reasignar direcciones IP" exportResource="asignaciones">
+      <PageHeader title="Asignaciones de IP" subtitle="Asignar y liberar direcciones IP" exportResource="asignaciones">
         {can("administrador", "tecnico") && (
-          <>
-            <Button size="sm" variant="outline" onClick={() => openNew(true)} data-testid="reassign-btn"><RefreshCw className="w-4 h-4 mr-1.5" />Reasignar</Button>
-            <Button size="sm" onClick={() => openNew(false)} data-testid="assign-btn"><Plus className="w-4 h-4 mr-1.5" />Asignar IP</Button>
-          </>
+          <Button size="sm" onClick={() => openNew(false)} data-testid="assign-btn"><Plus className="w-4 h-4 mr-1.5" />Asignar IP</Button>
         )}
       </PageHeader>
+
+      <div className="mb-4">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por IP, equipo o estado..."
+          className="max-w-sm"
+          data-testid="search-input"
+        />
+      </div>
 
       <TableWrap>
         {loading ? <TableSkeleton cols={5} /> : (
@@ -83,7 +128,7 @@ export default function Asignaciones() {
             <table className="w-full">
               <thead className="bg-muted/40"><tr><Th>Dirección IP</Th><Th>Equipo</Th><Th>Fecha Asignación</Th><Th>Estado</Th><Th className="text-right">Acciones</Th></tr></thead>
               <tbody className="divide-y divide-border">
-                {items.length === 0 ? <EmptyRow cols={5} /> : items.map((a) => (
+                {filteredItems.length === 0 ? <EmptyRow cols={5} /> : filteredItems.map((a) => (
                   <tr key={a.id} className="hover:bg-accent/40 transition-colors" data-testid={`asig-row-${a.id}`}>
                     <Td className="font-mono-ip font-medium">{a.ip_direccion}</Td>
                     <Td>{a.equipo_nombre}</Td>
@@ -157,16 +202,16 @@ export default function Asignaciones() {
             </div>
             <div>
               <Label>Segmento</Label>
-              <Select value={form.segmento_id} onValueChange={(v) => setForm({ ...form, segmento_id: v, ip_id: "" })}>
+              <Select value={String(form.segmento_id)} onValueChange={(v) => { console.log("ID seleccionado:", v); setForm({ ...form, segmento_id: Number(v), ip_id: "" }); }}>
                 <SelectTrigger className="mt-1.5" data-testid="assign-segmento"><SelectValue placeholder="Seleccione segmento" /></SelectTrigger>
-                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}</SelectContent>
+                <SelectContent>{segs.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.nombre}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>Dirección IP disponible</Label>
-              <Select value={form.ip_id} onValueChange={(v) => setForm({ ...form, ip_id: v })} disabled={!form.segmento_id}>
+              <Select value={String(form.ip_id)} onValueChange={(v) => setForm({ ...form, ip_id: Number(v) })} disabled={!form.segmento_id}>
                 <SelectTrigger className="mt-1.5 font-mono-ip" data-testid="assign-ip"><SelectValue placeholder={form.segmento_id ? "Seleccione IP" : "Elija un segmento primero"} /></SelectTrigger>
-                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={ip.id} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-60">{availIps.map((ip) => <SelectItem key={ip.id} value={String(ip.id)} className="font-mono-ip">{ip.direccion}</SelectItem>)}</SelectContent>
               </Select>
               {form.segmento_id && availIps.length === 0 && <p className="text-xs text-amber-600 mt-1">No hay IP disponibles en este segmento</p>}
             </div>

@@ -1,17 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
+from dependencies.auth_dependency import obtener_usuario_actual
 
+from models.asignacion_model import AsignacionCreate
 from procedures.asignaciones import (
+    asignar_ip,
     obtener_asignaciones,
     obtener_equipos,
+    obtener_ips_disponibles,
     obtener_segmentos,
-    liberar_asignacion
+    liberar_asignacion,
+    exportar_asignaciones_excel,
+    exportar_asignaciones_pdf
 )
 
 router = APIRouter(
     prefix="/api/asignaciones",
     tags=["Asignaciones"]
 )
-
 
 # ==========================================
 # LISTAR ASIGNACIONES
@@ -56,6 +62,49 @@ def listar_segmentos():
 # ==========================================
 
 @router.post("/{id_asignacion}/liberar")
-def liberar(id_asignacion: int):
-    return liberar_asignacion(id_asignacion)
+def liberar(id_asignacion: int, usuario_actual=Depends(obtener_usuario_actual)):
+    return liberar_asignacion(id_asignacion, usuario_actual["id_usuario"])
 
+# ==========================================
+# COMBO IPS DISPONIBLES
+# ==========================================
+
+@router.get("/ips")
+def listar_ips_disponibles(id_segmento: int):
+    return obtener_ips_disponibles(id_segmento)
+
+# ==========================================
+# EXPORTAR ASIGNACIONES A EXCEL
+# ==========================================
+
+@router.get("/export/excel")
+def exportar_excel():
+    return exportar_asignaciones_excel()
+
+# ==========================================
+# EXPORTAR ASIGNACIONES A PDF
+# ==========================================
+
+@router.get("/export/pdf")
+def exportar_pdf():
+
+    archivo = exportar_asignaciones_pdf()
+
+    return FileResponse(
+        path=archivo,
+        media_type="application/pdf",
+        filename="Reporte_Asignaciones_IP.pdf"
+    )
+
+# ==========================================
+# # ASIGNAR DIRECCIÓN IP
+# ==========================================
+
+@router.post("/")
+def crear_asignacion(data: AsignacionCreate, usuario_actual=Depends(obtener_usuario_actual)):
+    return asignar_ip(
+        data.id_ip,
+        data.id_equipo,
+        data.id_usuario,
+        usuario_actual["id_usuario"]
+    )

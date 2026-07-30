@@ -1,5 +1,7 @@
 from fastapi import HTTPException
 from mysql.connector import Error
+from procedures.bitacoramodulo import registrar_bitacora
+
 
 from database.conexion import get_connection
 
@@ -95,16 +97,16 @@ def obtener_segmentos(page: int = 1, limit: int = 10, all: bool = False, search:
             conexion.close()
 
 
-def crear_segmento(nombre, direccion_red, mascara, gateway=""):
+def crear_segmento(nombre, direccion_red, mascara, gateway="", id_usuario_actual=None):
     nombre = nombre.strip()
     direccion_red = direccion_red.strip()
     mascara = mascara.strip()
     gateway = gateway.strip()
 
-    if not nombre or not direccion_red or not mascara:
+    if not nombre or not direccion_red or not mascara or not gateway:
         raise HTTPException(
             status_code=400,
-            detail="Nombre, dirección de red y máscara son obligatorios."
+            detail="Nombre, dirección de red, máscara y gateway son obligatorios."
         )
 
     conexion = get_connection()
@@ -127,8 +129,96 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
                 detail="Ya existe un segmento con ese nombre."
             )
 
-        cursor = conexion.cursor()
+        # Validar duplicado por dirección de red + máscara (solo activos)
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE direccion_red = %s
+              AND mascara = %s
+              AND id_estado = 1
+        """, (direccion_red, mascara))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un segmento con esa dirección de red y máscara."
+            )
 
+        # Validar duplicado por gateway (si fue proporcionado) (solo activos)
+        if gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_estado = 1
+            """, (gateway,))
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ya existe un segmento con ese gateway."
+                )
+        # Si existe un registro inactivo con igual nombre/dirección+mascara/gateway, reactivar
+        # Priorizar búsqueda por nombre, luego por direccion+mascara, luego por gateway
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE nombre = %s
+              AND id_estado = 2
+            LIMIT 1
+        """, (nombre,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE direccion_red = %s
+                  AND mascara = %s
+                  AND id_estado = 2
+                LIMIT 1
+            """, (direccion_red, mascara))
+            row = cursor.fetchone()
+
+        if not row and gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_estado = 2
+                LIMIT 1
+            """, (gateway,))
+            row = cursor.fetchone()
+
+        if row:
+            id_reactivar = row["id_segmento"]
+            upd = conexion.cursor()
+            upd.execute("""
+                UPDATE tbl_segmento
+                SET nombre = %s,
+                    direccion_red = %s,
+                    mascara = %s,
+                    gateway = %s,
+                    id_estado = 1
+                WHERE id_segmento = %s
+            """, (nombre, direccion_red, mascara, gateway, id_reactivar))
+            conexion.commit()
+
+            registrar_bitacora(
+                id_usuario=id_usuario_actual,
+                accion="REACTIVAR",
+                tabla_afectada="tbl_segmento",
+                registro_id=id_reactivar,
+                detalle=(
+                f"Se reactivó el segmento '{nombre}' "
+                f"con dirección de red '{direccion_red}'."
+                )
+            )
+
+            return {
+                "mensaje": "Segmento reactivado correctamente.",
+                "id_segmento": id_reactivar
+            }
+
+        # Si no hay inactivos a reactivar, insertar nuevo
+        cursor = conexion.cursor()
         consulta_sql = """
             INSERT INTO tbl_segmento
             (
@@ -160,6 +250,17 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
 
         conexion.commit()
 
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="CREAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=cursor.lastrowid,
+            detalle=(
+            f"Se creó el segmento '{nombre}' "
+            f"con dirección de red '{direccion_red}'."
+            )
+        )
+
         return {
             "mensaje": "Segmento creado correctamente.",
             "id_segmento": cursor.lastrowid
@@ -181,16 +282,16 @@ def crear_segmento(nombre, direccion_red, mascara, gateway=""):
             conexion.close()
 
 
-def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway=""):
+def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="", id_usuario_actual=None):
     nombre = nombre.strip()
     direccion_red = direccion_red.strip()
     mascara = mascara.strip()
     gateway = gateway.strip()
 
-    if not nombre or not direccion_red or not mascara:
+    if not nombre or not direccion_red or not mascara or not gateway:
         raise HTTPException(
             status_code=400,
-            detail="Nombre, dirección de red y máscara son obligatorios."
+            detail="Nombre, dirección de red, máscara y gateway son obligatorios."
         )
 
     conexion = get_connection()
@@ -199,19 +300,25 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_segmento
+            SELECT
+                id_segmento,
+                nombre,
+                direccion_red,
+                mascara,
+                gateway
             FROM tbl_segmento
             WHERE id_segmento = %s
             AND id_estado = 1
         """
 
         cursor.execute(consulta_sql, (id_segmento,))
+        segmento_anterior = cursor.fetchone()
 
-        if not cursor.fetchone():
+        if not segmento_anterior:
             raise HTTPException(
-                status_code=404,
-                detail="Segmento no encontrado."
-            )
+            status_code=404,
+            detail="Segmento no encontrado."
+        )
 
         consulta_sql = """
             SELECT id_segmento
@@ -229,6 +336,37 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
                 detail="Ya existe un segmento con ese nombre."
             )
 
+        # Validar duplicado por dirección de red + máscara (solo activos), excluyendo el segmento actual
+        cursor.execute("""
+            SELECT id_segmento
+            FROM tbl_segmento
+            WHERE direccion_red = %s
+              AND mascara = %s
+              AND id_segmento <> %s
+              AND id_estado = 1
+        """, (direccion_red, mascara, id_segmento))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un segmento con esa dirección de red y máscara."
+            )
+
+        # Validar duplicado por gateway (si fue proporcionado) (solo activos), excluyendo el segmento actual
+        if gateway:
+            cursor.execute("""
+                SELECT id_segmento
+                FROM tbl_segmento
+                WHERE gateway = %s
+                  AND id_segmento <> %s
+                  AND id_estado = 1
+            """, (gateway, id_segmento))
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ya existe un segmento con ese gateway."
+                )
+
+        cursor.close()
         cursor = conexion.cursor()
 
         consulta_sql = """
@@ -254,6 +392,40 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
 
         conexion.commit()
 
+        cambios = []
+        if segmento_anterior["nombre"] != nombre:
+            cambios.append(
+                f"Nombre: '{segmento_anterior['nombre']}' → '{nombre}'"
+            )
+
+        if segmento_anterior["direccion_red"] != direccion_red:
+            cambios.append(
+                f"Dirección de red: "
+                f"'{segmento_anterior['direccion_red']}' → '{direccion_red}'"
+            )
+
+        if segmento_anterior["mascara"] != mascara:
+            cambios.append(
+                f"Máscara: "
+                f"'{segmento_anterior['mascara']}' → '{mascara}'"
+            )
+
+        if segmento_anterior["gateway"] != gateway:
+            cambios.append(
+                f"Gateway: "
+                f"'{segmento_anterior['gateway']}' → '{gateway}'"
+            )
+
+        detalle = "; ".join(cambios)
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="EDITAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=id_segmento,
+            detalle=detalle if detalle else "No hubo cambios."
+        )
+          
         return {
             "mensaje": "Segmento actualizado correctamente."
         }
@@ -274,14 +446,16 @@ def actualizar_segmento(id_segmento, nombre, direccion_red, mascara, gateway="")
             conexion.close()
 
 
-def eliminar_segmento(id_segmento):
+def eliminar_segmento(id_segmento, id_usuario_actual):
     conexion = get_connection()
 
     try:
         cursor = conexion.cursor(dictionary=True)
 
         consulta_sql = """
-            SELECT id_segmento
+            SELECT
+                id_segmento,
+                nombre
             FROM tbl_segmento
             WHERE id_segmento = %s
             AND id_estado = 1
@@ -289,12 +463,15 @@ def eliminar_segmento(id_segmento):
 
         cursor.execute(consulta_sql, (id_segmento,))
 
-        if not cursor.fetchone():
+        segmento = cursor.fetchone()
+
+        if not segmento:
             raise HTTPException(
                 status_code=404,
                 detail="Segmento no encontrado."
             )
 
+        cursor.close()
         cursor = conexion.cursor()
 
         consulta_sql = """
@@ -305,6 +482,14 @@ def eliminar_segmento(id_segmento):
 
         cursor.execute(consulta_sql, (id_segmento,))
         conexion.commit()
+
+        registrar_bitacora(
+            id_usuario=id_usuario_actual,
+            accion="ELIMINAR",
+            tabla_afectada="tbl_segmento",
+            registro_id=id_segmento,
+            detalle=f"Se eliminó el segmento '{segmento['nombre']}'."
+        )
 
         return {
             "mensaje": "Segmento eliminado correctamente."
@@ -326,7 +511,7 @@ def eliminar_segmento(id_segmento):
             conexion.close()
 
 
-def generar_ips_segmento(id_segmento: int):
+def generar_ips_segmento(id_segmento: int, id_usuario_actual):
     """Genera las 254 direcciones IP disponibles para el segmento especificado."""
     conexion = get_connection()
     if conexion is None:
@@ -369,6 +554,7 @@ def generar_ips_segmento(id_segmento: int):
                 nuevas_ips
             )
             conexion.commit()
+            
 
         total_generadas = len(nuevas_ips)
         return {

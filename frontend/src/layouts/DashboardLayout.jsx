@@ -40,7 +40,7 @@ const NAV = [
     to: "/departamentos",
     label: "Departamentos",
     icon: Building2,
-    roles: ["administrador", "tecnico"],
+    roles: ["administrador"],
   },
   {
     to: "/segmentos",
@@ -72,7 +72,7 @@ const NAV = [
     to: "/bitacora",
     label: "Bitácora",
     icon: ScrollText,
-    roles: ["administrador", "tecnico"],
+    roles: ["administrador"],
   },
 ];
 
@@ -116,7 +116,7 @@ export default function DashboardLayout() {
       } h-full`}
     >
       <div className="flex items-center gap-2.5 h-16 px-4 border-b border-border">
-        <div className="w-9 h-9 rounded-lg bg-primary overflow-hidden grid place-items-center">
+       <div className="w-10 h-10 overflow-hidden grid place-items-center">
           <img
             src="/favicon.png"
             alt="Logo Hospital Militar"

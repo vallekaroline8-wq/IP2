@@ -30,38 +30,51 @@ export default function Departamentos() {
     nombre: "",
   });
 
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const validateForm = () => {
+    const errs = {};
+    const nombre = form.nombre.trim();
+
+    if (!nombre) {
+      errs.nombre = "El nombre del departamento no puede estar vacío ni contener solo espacios.";
+    } else if (nombre.length < 3) {
+      errs.nombre = "El nombre del departamento debe tener al menos 3 caracteres.";
+    } else if (nombre.length > 50) {
+      errs.nombre = "El nombre del departamento no puede exceder las 50 letras.";
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s-]+$/.test(form.nombre)) {
+      errs.nombre = "El nombre solo debe contener letras, espacios y guiones (-). No se permiten números ni caracteres especiales.";
+    } else if (/^[-]|[-]$/.test(nombre)) {
+      errs.nombre = "El nombre no puede comenzar ni terminar con un guión.";
+    } else if (/--|\s\s/.test(form.nombre)) {
+      errs.nombre = "No se permiten guiones o espacios consecutivos.";
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const openNew = () => {
     setEditing(null);
-
     setForm({
       nombre: "",
     });
-
+    setErrors({});
     setOpen(true);
   };
 
   const openEdit = (d) => {
     setEditing(d);
-
     setForm({
       nombre: d.nombre,
     });
-
+    setErrors({});
     setOpen(true);
   };
 
   const save = async () => {
-    if (!form.nombre.trim()) {
-      return fail({
-        response: {
-          data: {
-            detail: "El nombre del departamento es obligatorio.",
-          },
-        },
-      });
-    }
+    if (!validateForm()) return;
 
     setSaving(true);
 
@@ -70,14 +83,14 @@ export default function Departamentos() {
         await api.put(
           `/departamentos/${editing.id_departamento}`,
           {
-            nombre: form.nombre,
+            nombre: form.nombre.trim(),
           }
         );
 
         ok("Departamento actualizado correctamente.");
       } else {
         await api.post("/departamentos", {
-          nombre: form.nombre,
+          nombre: form.nombre.trim(),
         });
 
         ok("Departamento creado correctamente.");
@@ -203,7 +216,10 @@ export default function Departamentos() {
 
       <Dialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setErrors({});
+        }}
       >
         <DialogContent>
           <DialogHeader>
@@ -219,15 +235,23 @@ export default function Departamentos() {
               <Label>Nombre</Label>
 
               <Input
-                className="mt-1.5"
+                className={`mt-1.5 ${
+                  errors.nombre ? "border-destructive focus-visible:ring-destructive" : ""
+                }`}
                 value={form.nombre}
-                onChange={(e) =>
+                onChange={(e) => {
                   setForm({
                     ...form,
                     nombre: e.target.value,
-                  })
-                }
+                  });
+                  if (errors.nombre) {
+                    setErrors((prev) => ({ ...prev, nombre: "" }));
+                  }
+                }}
               />
+              {errors.nombre && (
+                <p className="text-xs text-destructive mt-1.5">{errors.nombre}</p>
+              )}
             </div>
           </div>
 

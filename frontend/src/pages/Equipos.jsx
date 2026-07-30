@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
 
 import api from "@/services/api";
 import { useList, useOptions } from "@/hooks/useList";
@@ -43,6 +48,9 @@ const empty = {
   modelo: "",
   id_tipo: "",
   id_departamento: "",
+  ubicacion: "",
+  area: "",
+  extension: "",
 };
 
 export default function Equipos() {
@@ -56,11 +64,31 @@ export default function Equipos() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  // Filtros
+  const [tipoFiltro, setTipoFiltro] = useState("todos");
+  const [departamentoFiltro, setDepartamentoFiltro] = useState("todos");
+
+  const tipoSeleccionado =
+    tipos.find((t) => String(t.id_tipo) === form.id_tipo)?.nombre || "";
+
+  // Equipos filtrados correctamente
+  const equiposFiltrados = L.items.filter((e) => {
+    const matchTipo =
+      tipoFiltro === "todos" || String(e.id_tipo) === tipoFiltro;
+    const matchDep =
+      departamentoFiltro === "todos" ||
+      String(e.id_departamento) === departamentoFiltro;
+
+    return matchTipo && matchDep;
+  });
 
   const openNew = () => {
     setEditing(null);
     setForm(empty);
+    setErrors({});
     setOpen(true);
   };
 
@@ -71,50 +99,81 @@ export default function Equipos() {
       nombre_equipo: equipo.nombre_equipo || "",
       marca: equipo.marca || "",
       modelo: equipo.modelo || "",
-      id_tipo: String(equipo.id_tipo),
-      id_departamento: String(equipo.id_departamento),
+      id_tipo: String(equipo.id_tipo || ""),
+      id_departamento: String(equipo.id_departamento || ""),
+      ubicacion: equipo.ubicacion || "",
+      area: equipo.area || "",
+      extension: equipo.extension || "",
     });
+    setErrors({});
 
     setOpen(true);
   };
 
+  const validateForm = () => {
+    if (editing) return true;
+
+    const nextErrors = {};
+
+    if (!form.nombre_equipo.trim()) {
+      nextErrors.nombre_equipo = "El nombre del equipo es obligatorio";
+    }
+
+    if (!form.marca.trim()) {
+      nextErrors.marca = "La marca es obligatoria";
+    }
+
+    if (!form.modelo.trim()) {
+      nextErrors.modelo = "El modelo es obligatorio";
+    }
+
+    if (!form.id_departamento) {
+      nextErrors.id_departamento = "El departamento es obligatorio";
+    }
+
+    if (tipoSeleccionado === "Cámara IP" && !form.ubicacion.trim()) {
+      nextErrors.ubicacion = "La ubicación es obligatoria";
+    }
+
+    if (tipoSeleccionado === "Teléfono IP") {
+      if (!form.area.trim()) {
+        nextErrors.area = "El área es obligatoria";
+      }
+      if (!form.extension.trim()) {
+        nextErrors.extension = "La extensión es obligatoria";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const save = async () => {
-    if (
-      !form.nombre_equipo.trim() ||
-      !form.id_tipo ||
-      !form.id_departamento
-    ) {
-      return fail({
-        response: {
-          data: {
-            detail:
-              "Nombre, tipo y departamento son obligatorios.",
-          },
-        },
-      });
+    if (!validateForm()) {
+      return;
     }
 
     setSaving(true);
 
     const payload = {
       nombre_equipo: form.nombre_equipo.trim(),
-      marca: form.marca,
-      modelo: form.modelo,
-      id_tipo: Number(form.id_tipo),
+      marca: form.marca.trim(),
+      modelo: form.modelo.trim(),
+      ...(form.id_tipo ? { id_tipo: Number(form.id_tipo) } : {}),
       id_departamento: Number(form.id_departamento),
+      ...(tipoSeleccionado === "Cámara IP" && { ubicacion: form.ubicacion.trim() }),
+      ...(tipoSeleccionado === "Teléfono IP" && {
+        area: form.area.trim(),
+        extension: form.extension.trim(),
+      }),
     };
 
     try {
       if (editing) {
-        await api.put(
-          `/equipos/${editing.id_equipo}`,
-          payload
-        );
-
+        await api.put(`/equipos/${editing.id_equipo}`, payload);
         ok("Equipo actualizado correctamente.");
       } else {
         await api.post("/equipos", payload);
-
         ok("Equipo creado correctamente.");
       }
 
@@ -130,6 +189,30 @@ export default function Equipos() {
     }
   };
 
+  const exportarExcel = async () => {
+    try {
+      const response = await api.get("/equipos/export/excel", {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "equipos.xlsx";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
+
+      ok("Archivo Excel descargado.");
+    } catch (e) {
+      fail(e);
+    }
+  };
+
   const del = async (equipo) => {
     const confirmar = await confirmDelete(
       `Se eliminará el equipo "${equipo.nombre_equipo}".`
@@ -139,9 +222,7 @@ export default function Equipos() {
 
     try {
       await api.delete(`/equipos/${equipo.id_equipo}`);
-
       ok("Equipo eliminado correctamente.");
-
       L.refetch();
     } catch (e) {
       fail(e);
@@ -149,24 +230,82 @@ export default function Equipos() {
   };
 
   return (
-        <div>
+    <div>
       <PageHeader
         title="Equipos"
         subtitle="Administración de equipos"
         exportResource="equipos"
+        onExport={exportarExcel}
       />
 
       <TableWrap>
-        <Toolbar
-          search={L.search}
-          setSearch={L.setSearch}
-          onAdd={openNew}
-          addLabel="Nuevo Equipo"
-          canAdd={can("administrador", "tecnico")}
-        />
+       <Toolbar
+  showSearch={false}
+  showBorder={false}
+  onAdd={openNew}
+  addLabel="Nuevo Equipo"
+  canAdd={can("administrador", "tecnico")}
+/>
+
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4 px-6 py-2.5 border-b border-border">
+          {/* Tipo */}
+          <div className="w-56">
+            <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo de equipo" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los tipos</SelectItem>
+
+                {tipos.map((t) => (
+                  <SelectItem key={t.id_tipo} value={String(t.id_tipo)}>
+                    {t.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Departamento */}
+          <div className="w-64">
+            <Select
+              value={departamentoFiltro}
+              onValueChange={setDepartamentoFiltro}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por departamento" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los departamentos</SelectItem>
+
+                {departamentos.map((d) => (
+                  <SelectItem
+                    key={d.id_departamento}
+                    value={String(d.id_departamento)}
+                  >
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTipoFiltro("todos");
+              setDepartamentoFiltro("todos");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
 
         {L.loading ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={9} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -177,62 +316,53 @@ export default function Equipos() {
                   <Th>Marca</Th>
                   <Th>Modelo</Th>
                   <Th>Departamento</Th>
-                  <Th>Estado</Th>
+                  <Th>Ubicación</Th>
+                  <Th>Área</Th>
+                  <Th>Extensión</Th>
                   <Th className="text-right">Acciones</Th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-border">
-                {L.items.length === 0 ? (
-                  <EmptyRow cols={7} />
+                {equiposFiltrados.length === 0 ? (
+                  <EmptyRow cols={9} />
                 ) : (
-                  L.items.map((e) => (
+                  equiposFiltrados.map((e) => (
                     <tr
                       key={e.id_equipo}
                       className="hover:bg-accent/40 transition-colors"
                     >
-                      <Td className="font-medium">
-                        {e.nombre_equipo}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.tipo}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.marca || "-"}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.modelo || "-"}
-                      </Td>
-
-                      <Td className="text-muted-foreground">
-                        {e.departamento}
-                      </Td>
-
-                      <Td>{e.estado}</Td>
+                      <Td className="font-medium">{e.nombre_equipo}</Td>
+                      <Td className="text-muted-foreground">{e.tipo}</Td>
+                      <Td className="text-muted-foreground">{e.marca || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.modelo || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.departamento}</Td>
+                      <Td className="text-muted-foreground">{e.ubicacion || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.area || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.extension || "-"}</Td>
 
                       <Td className="text-right">
-                        {can("administrador", "tecnico") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(e)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {can("administrador", "tecnico") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(e)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
 
-                        {can("administrador") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => del(e)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        )}
+                          {can("administrador") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => del(e)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </Td>
                     </tr>
                   ))
@@ -250,78 +380,26 @@ export default function Equipos() {
         />
       </TableWrap>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Modal / Diálogo para Crear y Editar */}
+      <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setErrors({}); }}>
         <DialogContent className="max-w-lg">
-
           <DialogHeader>
             <DialogTitle>
               {editing ? "Editar Equipo" : "Nuevo Equipo"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-3 py-2">
-
+          <div className="grid grid-cols-2 gap-4 py-2">
+            {/* Tipo */}
             <div className="col-span-2">
-              <Label>Nombre</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.nombre_equipo}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    nombre_equipo: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Marca</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.marca}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    marca: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Modelo</Label>
-
-              <Input
-                className="mt-1.5"
-                value={form.modelo}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    modelo: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Tipo</Label>
-
+              <Label>Tipo de dispositivo</Label>
               <Select
                 value={form.id_tipo}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    id_tipo: v,
-                  })
-                }
+                onValueChange={(v) => setForm({ ...form, id_tipo: v })}
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Seleccione" />
+                  <SelectValue placeholder="Seleccione un tipo" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {tipos.map((t) => (
                     <SelectItem
@@ -335,22 +413,71 @@ export default function Equipos() {
               </Select>
             </div>
 
-            <div>
-              <Label>Departamento</Label>
+            {/* Nombre */}
+            <div className="col-span-2">
+              <Label>Nombre del equipo</Label>
+              <Input
+                className={`mt-1.5 ${errors.nombre_equipo ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.nombre_equipo}
+                onChange={(e) => {
+                  setForm({ ...form, nombre_equipo: e.target.value });
+                  if (errors.nombre_equipo) {
+                    setErrors((prev) => ({ ...prev, nombre_equipo: "" }));
+                  }
+                }}
+              />
+              {errors.nombre_equipo && (
+                <p className="text-xs text-destructive mt-1">{errors.nombre_equipo}</p>
+              )}
+            </div>
 
+            {/* Marca */}
+            <div>
+              <Label>Marca</Label>
+              <Input
+                className={`mt-1.5 ${errors.marca ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.marca}
+                onChange={(e) => {
+                  setForm({ ...form, marca: e.target.value });
+                  if (errors.marca) {
+                    setErrors((prev) => ({ ...prev, marca: "" }));
+                  }
+                }}
+              />
+              {errors.marca && <p className="text-xs text-destructive mt-1">{errors.marca}</p>}
+            </div>
+
+            {/* Modelo */}
+            <div>
+              <Label>Modelo</Label>
+              <Input
+                className={`mt-1.5 ${errors.modelo ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.modelo}
+                onChange={(e) => {
+                  setForm({ ...form, modelo: e.target.value });
+                  if (errors.modelo) {
+                    setErrors((prev) => ({ ...prev, modelo: "" }));
+                  }
+                }}
+              />
+              {errors.modelo && <p className="text-xs text-destructive mt-1">{errors.modelo}</p>}
+            </div>
+
+            {/* Departamento */}
+            <div className="col-span-2">
+              <Label>Departamento</Label>
               <Select
                 value={form.id_departamento}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    id_departamento: v,
-                  })
-                }
+                onValueChange={(v) => {
+                  setForm({ ...form, id_departamento: v });
+                  if (errors.id_departamento) {
+                    setErrors((prev) => ({ ...prev, id_departamento: "" }));
+                  }
+                }}
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Seleccione" />
+                  <SelectValue placeholder="Seleccione un departamento" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {departamentos.map((d) => (
                     <SelectItem
@@ -362,36 +489,83 @@ export default function Equipos() {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.id_departamento && (
+                <p className="text-xs text-destructive mt-1">{errors.id_departamento}</p>
+              )}
             </div>
 
+            {/* Campos dinámicos */}
+            {tipoSeleccionado === "Cámara IP" && (
+              <div className="col-span-2">
+                <Label>Ubicación</Label>
+                <Input
+                  className={`mt-1.5 ${errors.ubicacion ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  placeholder="Ej. Pasillo Principal"
+                  value={form.ubicacion}
+                  onChange={(e) => {
+                    setForm({ ...form, ubicacion: e.target.value });
+                    if (errors.ubicacion) {
+                      setErrors((prev) => ({ ...prev, ubicacion: "" }));
+                    }
+                  }}
+                />
+                {errors.ubicacion && (
+                  <p className="text-xs text-destructive mt-1">{errors.ubicacion}</p>
+                )}
+              </div>
+            )}
+
+            {tipoSeleccionado === "Teléfono IP" && (
+              <>
+                <div>
+                  <Label>Área</Label>
+                  <Input
+                    className={`mt-1.5 ${errors.area ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    placeholder="Ej. Emergencias"
+                    value={form.area}
+                    onChange={(e) => {
+                      setForm({ ...form, area: e.target.value });
+                      if (errors.area) {
+                        setErrors((prev) => ({ ...prev, area: "" }));
+                      }
+                    }}
+                  />
+                  {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
+                </div>
+
+                <div>
+                  <Label>Extensión</Label>
+                  <Input
+                    className={`mt-1.5 ${errors.extension ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    placeholder="Ej. 2104"
+                    value={form.extension}
+                    onChange={(e) => {
+                      setForm({ ...form, extension: e.target.value });
+                      if (errors.extension) {
+                        setErrors((prev) => ({ ...prev, extension: "" }));
+                      }
+                    }}
+                  />
+                  {errors.extension && (
+                    <p className="text-xs text-destructive mt-1">{errors.extension}</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>
-
-            <Button
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
 
-            <Button
-              onClick={save}
-              disabled={saving}
-            >
-              {saving && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Guardar
             </Button>
-
           </DialogFooter>
-
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
-

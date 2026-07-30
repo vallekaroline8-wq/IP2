@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from dependencies.auth_dependency import obtener_usuario_actual
 
 from models.segmento_model import SegmentoCreate
 from procedures.segmentos import (
@@ -36,12 +37,14 @@ def listar_segmentos(
     summary="Nuevo Segmento",
     description="Crea un nuevo segmento en tbl_segmento."
 )
-def nuevo_segmento(datos: SegmentoCreate):
+def nuevo_segmento(datos: SegmentoCreate,
+                   usuario_actual = Depends(obtener_usuario_actual)):
     return crear_segmento(
         datos.nombre,
         datos.direccion_red,
         datos.mascara,
-        datos.gateway
+        datos.gateway,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -52,14 +55,16 @@ def nuevo_segmento(datos: SegmentoCreate):
 )
 def editar_segmento(
     id_segmento: int,
-    datos: SegmentoCreate
+    datos: SegmentoCreate,
+    usuario_actual = Depends(obtener_usuario_actual)
 ):
     return actualizar_segmento(
         id_segmento,
         datos.nombre,
         datos.direccion_red,
         datos.mascara,
-        datos.gateway
+        datos.gateway,
+        usuario_actual["id_usuario"]
     )
 
 
@@ -77,8 +82,9 @@ def endpoint_limpiar_todas_ips():
     summary="Eliminar Segmento",
     description="Realiza una eliminación lógica del segmento."
 )
-def borrar_segmento(id_segmento: int):
-    return eliminar_segmento(id_segmento)
+def borrar_segmento(id_segmento: int, usuario_actual = Depends(obtener_usuario_actual)):
+    return eliminar_segmento(id_segmento, usuario_actual["id_usuario"])
+    
 
 
 @router.post(
@@ -86,8 +92,9 @@ def borrar_segmento(id_segmento: int):
     summary="Generar IPs del Segmento",
     description="Generar las 254 direcciones IP disponibles para el segmento."
 )
-def endpoint_generar_ips(id_segmento: int):
-    return generar_ips_segmento(id_segmento)
+def endpoint_generar_ips(id_segmento: int, usuario_actual = Depends(obtener_usuario_actual)):
+    return generar_ips_segmento(id_segmento, usuario_actual["id_usuario"])
+
 
 
 @router.delete(
@@ -97,5 +104,3 @@ def endpoint_generar_ips(id_segmento: int):
 )
 def endpoint_limpiar_ips(id_segmento: int):
     return limpiar_ips_segmento(id_segmento)
-
-
