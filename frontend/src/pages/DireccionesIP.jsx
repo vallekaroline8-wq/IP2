@@ -63,7 +63,7 @@ export default function DireccionesIP() {
           </div>
           <Select value={segmento} onValueChange={setSegmento}>
             <SelectTrigger className="w-full sm:w-52" data-testid="filter-segmento"><SelectValue placeholder="Segmento" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">Todos los segmentos</SelectItem>{segs.map((s) => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value="all">Todos los segmentos</SelectItem>{segs.map((s) => <SelectItem key={s.id_segmento} value={String(s.id_segmento)}>{s.nombre}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={estado} onValueChange={setEstado}>
             <SelectTrigger className="w-full sm:w-44" data-testid="filter-estado"><SelectValue placeholder="Estado" /></SelectTrigger>

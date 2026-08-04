@@ -1,109 +1,568 @@
 import { useState } from "react";
-import { Pencil, Trash2, Loader2, Phone } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
+
 import api from "@/services/api";
 import { useList, useOptions } from "@/hooks/useList";
 import { useAuth } from "@/context/AuthContext";
+
 import { PageHeader } from "@/components/PageHeader";
 import { Pagination, TableSkeleton } from "@/components/Pagination";
-import { Toolbar, TableWrap, Th, Td, EmptyRow } from "@/components/Toolbar";
+import {
+  Toolbar,
+  TableWrap,
+  Th,
+  Td,
+  EmptyRow,
+} from "@/components/Toolbar";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
 import { confirmDelete, ok, fail } from "@/utils/ui";
 
-const empty = { nombre: "", marca: "", modelo: "", tipo_id: "", departamento_id: "", seccion_id: "", es_telefono_ip: false };
+const empty = {
+  nombre_equipo: "",
+  marca: "",
+  modelo: "",
+  id_tipo: "",
+  id_departamento: "",
+  ubicacion: "",
+  area: "",
+  extension: "",
+};
 
 export default function Equipos() {
   const { can } = useAuth();
+
   const L = useList("equipos");
+
   const tipos = useOptions("tipo_dispositivo");
-  const deps = useOptions("departamentos");
+  const departamentos = useOptions("departamentos");
+
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
-  const openEdit = (e) => { setEditing(e); setForm({ ...empty, ...e }); setOpen(true); };
+  // Filtros
+  const [tipoFiltro, setTipoFiltro] = useState("todos");
+  const [departamentoFiltro, setDepartamentoFiltro] = useState("todos");
 
-  const save = async () => {
-    if (!form.nombre.trim() || !form.tipo_id || !form.departamento_id) return fail({ response: { data: { detail: "Nombre, tipo y departamento son obligatorios" } } });
-    setSaving(true);
-    const payload = { nombre: form.nombre, marca: form.marca, modelo: form.modelo, tipo_id: form.tipo_id, departamento_id: form.departamento_id, seccion_id: form.seccion_id || "", es_telefono_ip: form.es_telefono_ip };
-    try {
-      if (editing) await api.put(`/equipos/${editing.id}`, payload);
-      else await api.post("/equipos", payload);
-      ok(editing ? "Equipo actualizado" : "Equipo registrado");
-      setOpen(false); L.refetch();
-    } catch (e) { fail(e); } finally { setSaving(false); }
+  const tipoSeleccionado =
+    tipos.find((t) => String(t.id_tipo) === form.id_tipo)?.nombre || "";
+
+  // Equipos filtrados correctamente
+  const equiposFiltrados = L.items.filter((e) => {
+    const matchTipo =
+      tipoFiltro === "todos" || String(e.id_tipo) === tipoFiltro;
+    const matchDep =
+      departamentoFiltro === "todos" ||
+      String(e.id_departamento) === departamentoFiltro;
+
+    return matchTipo && matchDep;
+  });
+
+  const openNew = () => {
+    setEditing(null);
+    setForm(empty);
+    setErrors({});
+    setOpen(true);
   };
 
-  const del = async (e) => {
-    if (!(await confirmDelete(`Se eliminará el equipo "${e.nombre}"`))) return;
-    try { await api.delete(`/equipos/${e.id}`); ok("Equipo eliminado"); L.refetch(); } catch (err) { fail(err); }
+  const openEdit = (equipo) => {
+    setEditing(equipo);
+
+    setForm({
+      nombre_equipo: equipo.nombre_equipo || "",
+      marca: equipo.marca || "",
+      modelo: equipo.modelo || "",
+      id_tipo: String(equipo.id_tipo || ""),
+      id_departamento: String(equipo.id_departamento || ""),
+      ubicacion: equipo.ubicacion || "",
+      area: equipo.area || "",
+      extension: equipo.extension || "",
+    });
+    setErrors({});
+
+    setOpen(true);
+  };
+
+  const validateForm = () => {
+    if (editing) return true;
+
+    const nextErrors = {};
+
+    if (!form.nombre_equipo.trim()) {
+      nextErrors.nombre_equipo = "El nombre del equipo es obligatorio";
+    }
+
+    if (!form.marca.trim()) {
+      nextErrors.marca = "La marca es obligatoria";
+    }
+
+    if (!form.modelo.trim()) {
+      nextErrors.modelo = "El modelo es obligatorio";
+    }
+
+    if (!form.id_departamento) {
+      nextErrors.id_departamento = "El departamento es obligatorio";
+    }
+
+    if (tipoSeleccionado === "Cámara IP" && !form.ubicacion.trim()) {
+      nextErrors.ubicacion = "La ubicación es obligatoria";
+    }
+
+    if (tipoSeleccionado === "Teléfono IP") {
+      if (!form.area.trim()) {
+        nextErrors.area = "El área es obligatoria";
+      }
+      if (!form.extension.trim()) {
+        nextErrors.extension = "La extensión es obligatoria";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const save = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      nombre_equipo: form.nombre_equipo.trim(),
+      marca: form.marca.trim(),
+      modelo: form.modelo.trim(),
+      ...(form.id_tipo ? { id_tipo: Number(form.id_tipo) } : {}),
+      id_departamento: Number(form.id_departamento),
+      ...(tipoSeleccionado === "Cámara IP" && { ubicacion: form.ubicacion.trim() }),
+      ...(tipoSeleccionado === "Teléfono IP" && {
+        area: form.area.trim(),
+        extension: form.extension.trim(),
+      }),
+    };
+
+    try {
+      if (editing) {
+        await api.put(`/equipos/${editing.id_equipo}`, payload);
+        ok("Equipo actualizado correctamente.");
+      } else {
+        await api.post("/equipos", payload);
+        ok("Equipo creado correctamente.");
+      }
+
+      setOpen(false);
+      setForm(empty);
+      setEditing(null);
+
+      L.refetch();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportarExcel = async () => {
+    try {
+      const response = await api.get("/equipos/export/excel", {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "equipos.xlsx";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
+
+      ok("Archivo Excel descargado.");
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const del = async (equipo) => {
+    const confirmar = await confirmDelete(
+      `Se eliminará el equipo "${equipo.nombre_equipo}".`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await api.delete(`/equipos/${equipo.id_equipo}`);
+      ok("Equipo eliminado correctamente.");
+      L.refetch();
+    } catch (e) {
+      fail(e);
+    }
   };
 
   return (
     <div>
-      <PageHeader title="Equipos" subtitle="Dispositivos institucionales (incluye teléfonos IP)" exportResource="equipos" />
+      <PageHeader
+        title="Equipos"
+        subtitle="Administración de equipos"
+        exportResource="equipos"
+        onExport={exportarExcel}
+      />
+
       <TableWrap>
-        <Toolbar search={L.search} setSearch={L.setSearch} onAdd={openNew} addLabel="Nuevo Equipo" canAdd={can("administrador", "tecnico")} />
-        {L.loading ? <TableSkeleton cols={5} /> : (
+       <Toolbar
+  showSearch={false}
+  showBorder={false}
+  onAdd={openNew}
+  addLabel="Nuevo Equipo"
+  canAdd={can("administrador", "tecnico")}
+/>
+
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4 px-6 py-2.5 border-b border-border">
+          {/* Tipo */}
+          <div className="w-56">
+            <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo de equipo" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los tipos</SelectItem>
+
+                {tipos.map((t) => (
+                  <SelectItem key={t.id_tipo} value={String(t.id_tipo)}>
+                    {t.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Departamento */}
+          <div className="w-64">
+            <Select
+              value={departamentoFiltro}
+              onValueChange={setDepartamentoFiltro}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por departamento" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="todos">Todos los departamentos</SelectItem>
+
+                {departamentos.map((d) => (
+                  <SelectItem
+                    key={d.id_departamento}
+                    value={String(d.id_departamento)}
+                  >
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTipoFiltro("todos");
+              setDepartamentoFiltro("todos");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
+
+        {L.loading ? (
+          <TableSkeleton cols={9} />
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-muted/40"><tr><Th>Nombre</Th><Th>Tipo</Th><Th>Marca / Modelo</Th><Th>Departamento</Th><Th>IP Activa</Th><Th className="text-right">Acciones</Th></tr></thead>
+              <thead className="bg-muted/40">
+                <tr>
+                  <Th>Nombre</Th>
+                  <Th>Tipo</Th>
+                  <Th>Marca</Th>
+                  <Th>Modelo</Th>
+                  <Th>Departamento</Th>
+                  <Th>Ubicación</Th>
+                  <Th>Área</Th>
+                  <Th>Extensión</Th>
+                  <Th className="text-right">Acciones</Th>
+                </tr>
+              </thead>
+
               <tbody className="divide-y divide-border">
-                {L.items.length === 0 ? <EmptyRow cols={6} /> : L.items.map((e) => (
-                  <tr key={e.id} className="hover:bg-accent/40 transition-colors">
-                    <Td className="font-medium flex items-center gap-2">{e.es_telefono_ip && <Phone className="w-3.5 h-3.5 text-amber-600" />}{e.nombre}</Td>
-                    <Td className="text-muted-foreground">{e.tipo_nombre}</Td>
-                    <Td className="text-muted-foreground">{e.marca} {e.modelo}</Td>
-                    <Td className="text-muted-foreground">{e.departamento_nombre}</Td>
-                    <Td className="font-mono-ip">{e.ip_activa || <span className="text-muted-foreground font-sans">-</span>}</Td>
-                    <Td className="text-right">
-                      {can("administrador", "tecnico") && <Button variant="ghost" size="icon" onClick={() => openEdit(e)}><Pencil className="w-4 h-4" /></Button>}
-                      {can("administrador") && <Button variant="ghost" size="icon" onClick={() => del(e)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
-                    </Td>
-                  </tr>
-                ))}
+                {equiposFiltrados.length === 0 ? (
+                  <EmptyRow cols={9} />
+                ) : (
+                  equiposFiltrados.map((e) => (
+                    <tr
+                      key={e.id_equipo}
+                      className="hover:bg-accent/40 transition-colors"
+                    >
+                      <Td className="font-medium">{e.nombre_equipo}</Td>
+                      <Td className="text-muted-foreground">{e.tipo}</Td>
+                      <Td className="text-muted-foreground">{e.marca || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.modelo || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.departamento}</Td>
+                      <Td className="text-muted-foreground">{e.ubicacion || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.area || "-"}</Td>
+                      <Td className="text-muted-foreground">{e.extension || "-"}</Td>
+
+                      <Td className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {can("administrador", "tecnico") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(e)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
+
+                          {can("administrador") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => del(e)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </Td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         )}
-        <Pagination page={L.page} pages={L.pages} total={L.total} onChange={L.setPage} />
+
+        <Pagination
+          page={L.page}
+          pages={L.pages}
+          total={L.total}
+          onChange={L.setPage}
+        />
       </TableWrap>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Modal / Diálogo para Crear y Editar */}
+      <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setErrors({}); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} Equipo</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="col-span-2"><Label>Nombre</Label><Input className="mt-1.5" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} data-testid="form-nombre" /></div>
-            <div><Label>Marca</Label><Input className="mt-1.5" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} /></div>
-            <div><Label>Modelo</Label><Input className="mt-1.5" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} /></div>
-            <div>
-              <Label>Tipo</Label>
-              <Select value={form.tipo_id} onValueChange={(v) => setForm({ ...form, tipo_id: v, es_telefono_ip: tipos.find((t) => t.id === v)?.nombre === "Teléfono IP" })}>
-                <SelectTrigger className="mt-1.5" data-testid="form-tipo"><SelectValue placeholder="Seleccione" /></SelectTrigger>
-                <SelectContent>{tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}</SelectContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editing ? "Editar Equipo" : "Nuevo Equipo"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-2">
+            {/* Tipo */}
+            <div className="col-span-2">
+              <Label>Tipo de dispositivo</Label>
+              <Select
+                value={form.id_tipo}
+                onValueChange={(v) => setForm({ ...form, id_tipo: v })}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Seleccione un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tipos.map((t) => (
+                    <SelectItem
+                      key={t.id_tipo}
+                      value={String(t.id_tipo)}
+                    >
+                      {t.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
+
+            {/* Nombre */}
+            <div className="col-span-2">
+              <Label>Nombre del equipo</Label>
+              <Input
+                className={`mt-1.5 ${errors.nombre_equipo ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.nombre_equipo}
+                onChange={(e) => {
+                  setForm({ ...form, nombre_equipo: e.target.value });
+                  if (errors.nombre_equipo) {
+                    setErrors((prev) => ({ ...prev, nombre_equipo: "" }));
+                  }
+                }}
+              />
+              {errors.nombre_equipo && (
+                <p className="text-xs text-destructive mt-1">{errors.nombre_equipo}</p>
+              )}
+            </div>
+
+            {/* Marca */}
             <div>
+              <Label>Marca</Label>
+              <Input
+                className={`mt-1.5 ${errors.marca ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.marca}
+                onChange={(e) => {
+                  setForm({ ...form, marca: e.target.value });
+                  if (errors.marca) {
+                    setErrors((prev) => ({ ...prev, marca: "" }));
+                  }
+                }}
+              />
+              {errors.marca && <p className="text-xs text-destructive mt-1">{errors.marca}</p>}
+            </div>
+
+            {/* Modelo */}
+            <div>
+              <Label>Modelo</Label>
+              <Input
+                className={`mt-1.5 ${errors.modelo ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                value={form.modelo}
+                onChange={(e) => {
+                  setForm({ ...form, modelo: e.target.value });
+                  if (errors.modelo) {
+                    setErrors((prev) => ({ ...prev, modelo: "" }));
+                  }
+                }}
+              />
+              {errors.modelo && <p className="text-xs text-destructive mt-1">{errors.modelo}</p>}
+            </div>
+
+            {/* Departamento */}
+            <div className="col-span-2">
               <Label>Departamento</Label>
-              <Select value={form.departamento_id} onValueChange={(v) => setForm({ ...form, departamento_id: v })}>
-                <SelectTrigger className="mt-1.5" data-testid="form-departamento"><SelectValue placeholder="Seleccione" /></SelectTrigger>
-                <SelectContent>{deps.map((d) => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
+              <Select
+                value={form.id_departamento}
+                onValueChange={(v) => {
+                  setForm({ ...form, id_departamento: v });
+                  if (errors.id_departamento) {
+                    setErrors((prev) => ({ ...prev, id_departamento: "" }));
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Seleccione un departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departamentos.map((d) => (
+                    <SelectItem
+                      key={d.id_departamento}
+                      value={String(d.id_departamento)}
+                    >
+                      {d.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
+              {errors.id_departamento && (
+                <p className="text-xs text-destructive mt-1">{errors.id_departamento}</p>
+              )}
             </div>
-            <label className="col-span-2 flex items-center gap-2 text-sm cursor-pointer mt-1">
-              <Checkbox checked={form.es_telefono_ip} onCheckedChange={(v) => setForm({ ...form, es_telefono_ip: !!v })} data-testid="form-telefono" /> Es teléfono IP
-            </label>
+
+            {/* Campos dinámicos */}
+            {tipoSeleccionado === "Cámara IP" && (
+              <div className="col-span-2">
+                <Label>Ubicación</Label>
+                <Input
+                  className={`mt-1.5 ${errors.ubicacion ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  placeholder="Ej. Pasillo Principal"
+                  value={form.ubicacion}
+                  onChange={(e) => {
+                    setForm({ ...form, ubicacion: e.target.value });
+                    if (errors.ubicacion) {
+                      setErrors((prev) => ({ ...prev, ubicacion: "" }));
+                    }
+                  }}
+                />
+                {errors.ubicacion && (
+                  <p className="text-xs text-destructive mt-1">{errors.ubicacion}</p>
+                )}
+              </div>
+            )}
+
+            {tipoSeleccionado === "Teléfono IP" && (
+              <>
+                <div>
+                  <Label>Área</Label>
+                  <Input
+                    className={`mt-1.5 ${errors.area ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    placeholder="Ej. Emergencias"
+                    value={form.area}
+                    onChange={(e) => {
+                      setForm({ ...form, area: e.target.value });
+                      if (errors.area) {
+                        setErrors((prev) => ({ ...prev, area: "" }));
+                      }
+                    }}
+                  />
+                  {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
+                </div>
+
+                <div>
+                  <Label>Extensión</Label>
+                  <Input
+                    className={`mt-1.5 ${errors.extension ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    placeholder="Ej. 2104"
+                    value={form.extension}
+                    onChange={(e) => {
+                      setForm({ ...form, extension: e.target.value });
+                      if (errors.extension) {
+                        setErrors((prev) => ({ ...prev, extension: "" }));
+                      }
+                    }}
+                  />
+                  {errors.extension && (
+                    <p className="text-xs text-destructive mt-1">{errors.extension}</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={saving} data-testid="save-btn">{saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Guardar</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

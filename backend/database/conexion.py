@@ -15,10 +15,10 @@ def get_connection():
         )
 
         if conexion.is_connected():
-            print("✅ Conectado a MySQL")
+            print("[OK] Conectado a MySQL")
 
         return conexion
 
     except mysql.connector.Error as err:
-        print(f"❌ Error de conexión: {err}")
+        print(f"[ERROR] Error de conexión: {err}")
         return None
