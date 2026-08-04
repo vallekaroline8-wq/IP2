@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { confirmDelete, confirmAction, ok, fail } from "@/utils/ui";
 
@@ -160,15 +161,30 @@ export default function Segmentos() {
           <div className="space-y-4 py-2">
             <div>
               <Label>Nombre</Label>
-              <Input
-                className={`mt-1.5 ${errors.nombre ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              <Select
                 value={form.nombre}
-                onChange={(e) => {
-                  setForm({ ...form, nombre: e.target.value });
+                onValueChange={(value) => {
+                  setForm({ ...form, nombre: value });
                   if (errors.nombre) setErrors((prev) => ({ ...prev, nombre: "" }));
                 }}
-                data-testid="form-nombre"
-              />
+              >
+                <SelectTrigger
+                  className={`mt-1.5 ${errors.nombre ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  data-testid="form-nombre"
+                >
+                  <SelectValue placeholder="Seleccione un departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deps.map((d) => {
+                    const depId = d.id_departamento ?? d.id;
+                    return (
+                      <SelectItem key={depId || d.nombre} value={d.nombre}>
+                        {d.nombre}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
               {errors.nombre && <p className="text-xs text-destructive mt-1">{errors.nombre}</p>}
             </div>
             <div>
